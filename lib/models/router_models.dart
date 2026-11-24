@@ -8,7 +8,7 @@ extension ApiProtocolExt on ApiProtocol {
   String get label {
     switch (this) {
       case ApiProtocol.routerOsApi8728:
-        return 'RouterOS API (Port 8777)';
+        return 'RouterOS API (Port 8728)';
       case ApiProtocol.restApiHttp:
         return 'REST API HTTP (Port 80)';
       case ApiProtocol.restApiHttps:
@@ -19,7 +19,7 @@ extension ApiProtocolExt on ApiProtocol {
   int get defaultPort {
     switch (this) {
       case ApiProtocol.routerOsApi8728:
-        return 8777;
+        return 8728;
       case ApiProtocol.restApiHttp:
         return 80;
       case ApiProtocol.restApiHttps:
@@ -89,7 +89,7 @@ class RouterProfile {
       id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
       label: json['label'] ?? json['host'] ?? 'Router',
       host: json['host'] ?? '',
-      port: json['port'] ?? 8777,
+      port: json['port'] ?? 8728,
       username: json['username'] ?? '',
       password: json['password'] ?? '',
       protocol: ApiProtocol.values.firstWhere(
