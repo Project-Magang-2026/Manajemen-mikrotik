@@ -1,4 +1,4 @@
-#main
+// ==================== FILE: lib/main.dart ====================
 import 'package:flutter/material.dart';
 import 'services/mikrotik_service.dart';
 import 'services/profile_storage_service.dart';
@@ -157,7 +157,7 @@ class _AutoLoginGateState extends State<AutoLoginGate> {
 }
 
 
-#models_router_models
+// ==================== FILE: lib/models/router_models.dart ====================
 enum ApiProtocol {
   routerOsApi8728,
   restApiHttp,
@@ -363,366 +363,7 @@ class StaticHostDevice {
   bool get isBlocked => isBlockedByIp || isBlockedByMac;
 }
 
-#models_winbox_models
-import 'package:flutter/material.dart';
-
-class WinboxCategory {
-  final String title;
-  final IconData icon;
-  final List<WinboxSubMenu> subMenus;
-
-  const WinboxCategory(this.title, this.icon, this.subMenus);
-}
-
-class WinboxSubMenu {
-  final String title;
-  final String path;
-  final String primaryField;
-  final String? secondaryField;
-  final List<String> displayColumns;
-
-  const WinboxSubMenu(
-    this.title,
-    this.path,
-    this.primaryField,
-    this.secondaryField, [
-    this.displayColumns = const [],
-  ]);
-}
-
-class WinboxMenuItemReference {
-  final int categoryIndex;
-  final int subMenuIndex;
-  final WinboxCategory category;
-  final WinboxSubMenu subMenu;
-
-  const WinboxMenuItemReference({
-    required this.categoryIndex,
-    required this.subMenuIndex,
-    required this.category,
-    required this.subMenu,
-  });
-}
-
-class QuickMenuGroup {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final List<String> paths;
-
-  const QuickMenuGroup({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.paths,
-  });
-}
-
-const List<QuickMenuGroup> quickMenuGroups = [
-  QuickMenuGroup(
-    title: 'IP & Jaringan',
-    icon: Icons.language_rounded,
-    color: Color(0xFF007AFF),
-    paths: [
-      '/ip/address',
-      '/ip/route',
-      '/ip/dhcp-server/lease',
-      '/ip/dhcp-server',
-      '/ip/arp',
-      '/ip/dns',
-      '/ip/pool',
-    ],
-  ),
-  QuickMenuGroup(
-    title: 'Firewall & Keamanan',
-    icon: Icons.security_rounded,
-    color: Color(0xFFFF9500),
-    paths: [
-      '/ip/firewall/nat',
-      '/ip/firewall/filter',
-      '/ip/firewall/mangle',
-      '/ip/firewall/address-list',
-    ],
-  ),
-  QuickMenuGroup(
-    title: 'Queues & Bandwidth',
-    icon: Icons.speed_rounded,
-    color: Color(0xFF34C759),
-    paths: [
-      '/queue/simple',
-      '/queue/tree',
-    ],
-  ),
-  QuickMenuGroup(
-    title: 'Interfaces & VLAN',
-    icon: Icons.lan_rounded,
-    color: Color(0xFF5856D6),
-    paths: [
-      '/interface',
-      '/interface/ethernet',
-      '/interface/bridge',
-      '/interface/vlan',
-      '/interface/wireguard',
-    ],
-  ),
-  QuickMenuGroup(
-    title: 'PPP & PPPoE',
-    icon: Icons.people_outline_rounded,
-    color: Color(0xFFAF52DE),
-    paths: [
-      '/ppp/secret',
-      '/ppp/active',
-      '/ppp/profile',
-      '/interface/pppoe-server/server',
-    ],
-  ),
-  QuickMenuGroup(
-    title: 'Log & Diagnostik',
-    icon: Icons.terminal_rounded,
-    color: Color(0xFFFF2D55),
-    paths: [
-      '/log',
-      'CLI_TOOL',
-      'PING_TOOL',
-      'PROFILE_TOOL',
-    ],
-  ),
-  QuickMenuGroup(
-    title: 'Sistem Router',
-    icon: Icons.dns_rounded,
-    color: Color(0xFF6C6C70),
-    paths: [
-      '/system/resource',
-      '/system/routerboard',
-      '/user',
-      'SYSTEM_REBOOT',
-    ],
-  ),
-];
-
-WinboxMenuItemReference? findWinboxMenuByPath(String path) {
-  for (int c = 0; c < winboxCategories.length; c++) {
-    for (int s = 0; s < winboxCategories[c].subMenus.length; s++) {
-      if (winboxCategories[c].subMenus[s].path == path) {
-        return WinboxMenuItemReference(
-          categoryIndex: c,
-          subMenuIndex: s,
-          category: winboxCategories[c],
-          subMenu: winboxCategories[c].subMenus[s],
-        );
-      }
-    }
-  }
-  return null;
-}
-
-List<WinboxMenuItemReference> searchWinboxMenus(String query) {
-  final q = query.trim().toLowerCase();
-  final results = <WinboxMenuItemReference>[];
-  for (int c = 0; c < winboxCategories.length; c++) {
-    final cat = winboxCategories[c];
-    for (int s = 0; s < cat.subMenus.length; s++) {
-      final sub = cat.subMenus[s];
-      if (q.isEmpty ||
-          cat.title.toLowerCase().contains(q) ||
-          sub.title.toLowerCase().contains(q) ||
-          sub.path.toLowerCase().contains(q)) {
-        results.add(WinboxMenuItemReference(
-          categoryIndex: c,
-          subMenuIndex: s,
-          category: cat,
-          subMenu: sub,
-        ));
-      }
-    }
-  }
-  return results;
-}
-
-const List<WinboxCategory> winboxCategories = [
-  WinboxCategory('Quick Set', Icons.speed_rounded, [
-    WinboxSubMenu('System Resource', '/system/resource', 'board-name', 'version', ['board-name', 'version', 'cpu-load', 'uptime', 'free-memory']),
-    WinboxSubMenu('RouterBOARD', '/system/routerboard', 'model', 'current-firmware', ['model', 'serial-number', 'current-firmware', 'upgrade-firmware']),
-    WinboxSubMenu('Health Sensors', '/system/health', 'name', 'value', ['name', 'value', 'type']),
-  ]),
-  WinboxCategory('Interfaces', Icons.lan_rounded, [
-    WinboxSubMenu('Interface List', '/interface', 'name', 'type', ['name', 'type', 'actual-mtu', 'mac-address', 'rx-byte', 'tx-byte']),
-    WinboxSubMenu('Ethernet', '/interface/ethernet', 'name', 'mac-address', ['name', 'mac-address', 'speed', 'full-duplex']),
-    WinboxSubMenu('VLAN', '/interface/vlan', 'name', 'vlan-id', ['name', 'vlan-id', 'interface', 'mtu']),
-    WinboxSubMenu('Bridge', '/interface/bridge', 'name', 'mac-address', ['name', 'mac-address', 'mtu', 'fast-forward']),
-    WinboxSubMenu('Bridge Ports', '/interface/bridge/port', 'interface', 'bridge', ['interface', 'bridge', 'priority', 'path-cost']),
-    WinboxSubMenu('Bridge VLANs', '/interface/bridge/vlan', 'bridge', 'vlan-ids', ['bridge', 'vlan-ids', 'tagged', 'untagged']),
-    WinboxSubMenu('Bridge Hosts', '/interface/bridge/host', 'mac-address', 'bridge', ['mac-address', 'bridge', 'on-interface', 'age']),
-    WinboxSubMenu('Bridge Filter', '/interface/bridge/filter', 'chain', 'action', ['chain', 'action', 'in-interface', 'out-interface', 'mac-protocol']),
-    WinboxSubMenu('Bridge NAT', '/interface/bridge/nat', 'chain', 'action', ['chain', 'action', 'to-dst-mac-address']),
-    WinboxSubMenu('Bonding', '/interface/bonding', 'name', 'mode', ['name', 'slaves', 'mode']),
-    WinboxSubMenu('WireGuard', '/interface/wireguard', 'name', 'listen-port', ['name', 'listen-port', 'public-key']),
-    WinboxSubMenu('WireGuard Peers', '/interface/wireguard/peers', 'interface', 'public-key', ['interface', 'public-key', 'allowed-address', 'endpoint-address']),
-    WinboxSubMenu('VRRP', '/interface/vrrp', 'name', 'vrid', ['name', 'interface', 'vrid', 'priority']),
-    WinboxSubMenu('EoIP Tunnel', '/interface/eoip', 'name', 'remote-address', ['name', 'remote-address', 'tunnel-id']),
-    WinboxSubMenu('GRE Tunnel', '/interface/gre', 'name', 'remote-address', ['name', 'remote-address', 'dscp']),
-    WinboxSubMenu('IPIP Tunnel', '/interface/ipip', 'name', 'remote-address', ['name', 'remote-address', 'dscp']),
-    WinboxSubMenu('LTE', '/interface/lte', 'name', 'pin', ['name', 'pin', 'network-mode']),
-    WinboxSubMenu('PPPoE Client', '/interface/pppoe-client', 'name', 'user', ['name', 'interface', 'user', 'service-name']),
-  ]),
-  WinboxCategory('Wireless', Icons.wifi_rounded, [
-    WinboxSubMenu('WiFi Interfaces', '/interface/wireless', 'name', 'ssid', ['name', 'ssid', 'band', 'frequency', 'mode']),
-    WinboxSubMenu('Registration Table', '/interface/wireless/registration-table', 'mac-address', 'signal-strength', ['mac-address', 'interface', 'signal-strength', 'tx-rate', 'rx-rate', 'uptime']),
-    WinboxSubMenu('Security Profiles', '/interface/wireless/security-profiles', 'name', 'mode', ['name', 'mode', 'authentication-types']),
-    WinboxSubMenu('Access List', '/interface/wireless/access-list', 'mac-address', 'interface', ['mac-address', 'interface', 'signal-range', 'authentication']),
-    WinboxSubMenu('Connect List', '/interface/wireless/connect-list', 'interface', 'mac-address', ['interface', 'mac-address', 'connect']),
-    WinboxSubMenu('Channels', '/interface/wireless/channels', 'name', 'frequency', ['name', 'frequency', 'width', 'band']),
-    WinboxSubMenu('CAPsMAN', '/caps-man/interface', 'name', 'radio-mac', ['name', 'radio-mac', 'configuration']),
-  ]),
-  WinboxCategory('Bridge', Icons.alt_route_rounded, [
-    WinboxSubMenu('Bridges', '/interface/bridge', 'name', 'mac-address', ['name', 'mac-address', 'mtu']),
-    WinboxSubMenu('Ports', '/interface/bridge/port', 'interface', 'bridge', ['interface', 'bridge', 'priority', 'path-cost']),
-    WinboxSubMenu('VLANs', '/interface/bridge/vlan', 'bridge', 'vlan-ids', ['bridge', 'vlan-ids', 'tagged', 'untagged']),
-    WinboxSubMenu('Hosts', '/interface/bridge/host', 'mac-address', 'bridge', ['mac-address', 'bridge', 'on-interface', 'age']),
-    WinboxSubMenu('Filter Rules', '/interface/bridge/filter', 'chain', 'action', ['chain', 'action', 'in-interface', 'out-interface']),
-    WinboxSubMenu('NAT Rules', '/interface/bridge/nat', 'chain', 'action', ['chain', 'action', 'to-dst-mac-address']),
-  ]),
-  WinboxCategory('PPP', Icons.people_outline_rounded, [
-    WinboxSubMenu('Secrets', '/ppp/secret', 'name', 'profile', ['name', 'service', 'profile', 'local-address', 'remote-address']),
-    WinboxSubMenu('Active Connections', '/ppp/active', 'name', 'address', ['name', 'service', 'caller-id', 'address', 'uptime']),
-    WinboxSubMenu('Profiles', '/ppp/profile', 'name', 'local-address', ['name', 'local-address', 'remote-address', 'rate-limit', 'dns-server']),
-    WinboxSubMenu('PPPoE Servers', '/interface/pppoe-server/server', 'service-name', 'interface', ['service-name', 'interface', 'max-mtu', 'default-profile']),
-    WinboxSubMenu('PPPoE Clients', '/interface/pppoe-client', 'name', 'user', ['name', 'interface', 'user', 'service-name']),
-    WinboxSubMenu('L2TP Server', '/interface/l2tp-server/server', 'enabled', 'default-profile', ['enabled', 'default-profile', 'max-mtu']),
-    WinboxSubMenu('SSTP Server', '/interface/sstp-server/server', 'enabled', 'port', ['enabled', 'port', 'default-profile', 'certificate']),
-    WinboxSubMenu('OVPN Server', '/interface/ovpn-server/server', 'enabled', 'port', ['enabled', 'port', 'mode', 'default-profile', 'certificate']),
-  ]),
-  WinboxCategory('Switch & Mesh', Icons.hub_rounded, [
-    WinboxSubMenu('Switch Settings', '/interface/ethernet/switch', 'name', 'type', ['name', 'type', 'cpu']),
-    WinboxSubMenu('Switch Ports', '/interface/ethernet/switch/port', 'name', 'switch', ['name', 'switch', 'vlan-mode', 'default-vlan-id']),
-    WinboxSubMenu('Switch VLANs', '/interface/ethernet/switch/vlan', 'switch', 'vlan-id', ['switch', 'vlan-id', 'ports']),
-    WinboxSubMenu('Switch Hosts', '/interface/ethernet/switch/host', 'mac-address', 'port', ['mac-address', 'port', 'vlan-id']),
-    WinboxSubMenu('Switch Rules', '/interface/ethernet/switch/rule', 'switch', 'ports', ['switch', 'ports', 'mac-protocol', 'new-vlan-id']),
-    WinboxSubMenu('Mesh Interfaces', '/interface/mesh', 'name', 'mac-address', ['name', 'mac-address', 'mtu']),
-    WinboxSubMenu('Mesh Ports', '/interface/mesh/port', 'interface', 'mesh', ['interface', 'mesh']),
-  ]),
-  WinboxCategory('IP', Icons.language_rounded, [
-    WinboxSubMenu('Addresses', '/ip/address', 'address', 'interface', ['address', 'network', 'interface', 'actual-interface']),
-    WinboxSubMenu('ARP Table', '/ip/arp', 'address', 'mac-address', ['address', 'mac-address', 'interface']),
-    WinboxSubMenu('Routes', '/ip/route', 'dst-address', 'gateway', ['dst-address', 'gateway', 'distance', 'scope', 'pref-src']),
-    WinboxSubMenu('Nexthops', '/ip/route/nexthop', 'address', 'interface', ['address', 'interface', 'metric']),
-    WinboxSubMenu('VRF', '/ip/route/vrf', 'name', 'interfaces', ['name', 'interfaces', 'route-distinguisher']),
-    WinboxSubMenu('DHCP Client', '/ip/dhcp-client', 'interface', 'status', ['interface', 'use-peer-dns', 'status', 'address']),
-    WinboxSubMenu('DHCP Server', '/ip/dhcp-server', 'name', 'interface', ['name', 'interface', 'lease-time', 'address-pool']),
-    WinboxSubMenu('DHCP Leases', '/ip/dhcp-server/lease', 'address', 'host-name', ['address', 'mac-address', 'host-name', 'server', 'status', 'expires-after']),
-    WinboxSubMenu('DHCP Networks', '/ip/dhcp-server/network', 'address', 'gateway', ['address', 'gateway', 'dns-server', 'domain']),
-    WinboxSubMenu('DHCP Options', '/ip/dhcp-server/option', 'name', 'code', ['name', 'code', 'value']),
-    WinboxSubMenu('DHCP Relay', '/ip/dhcp-relay', 'name', 'interface', ['name', 'interface', 'dhcp-server']),
-    WinboxSubMenu('DNS Settings', '/ip/dns', 'servers', 'dynamic-servers', ['servers', 'dynamic-servers', 'allow-remote-requests']),
-    WinboxSubMenu('DNS Static', '/ip/dns/static', 'name', 'address', ['name', 'address', 'ttl']),
-    WinboxSubMenu('DNS Cache', '/ip/dns/cache', 'name', 'data', ['name', 'type', 'data', 'ttl']),
-    WinboxSubMenu('IP Pool', '/ip/pool', 'name', 'ranges', ['name', 'ranges', 'next-pool']),
-    WinboxSubMenu('Services', '/ip/service', 'name', 'port', ['name', 'port', 'address', 'certificate']),
-    WinboxSubMenu('Cloud DDNS', '/ip/cloud', 'dns-name', 'status', ['dns-name', 'public-address', 'status', 'update-time']),
-    WinboxSubMenu('Hotspot Servers', '/ip/hotspot', 'name', 'interface', ['name', 'interface', 'address-pool', 'profile']),
-    WinboxSubMenu('Hotspot Users', '/ip/hotspot/user', 'name', 'profile', ['name', 'password', 'profile', 'uptime', 'bytes-in', 'bytes-out']),
-    WinboxSubMenu('Hotspot Active', '/ip/hotspot/active', 'user', 'address', ['user', 'address', 'mac-address', 'uptime', 'session-time-left']),
-    WinboxSubMenu('Hotspot Hosts', '/ip/hotspot/host', 'mac-address', 'address', ['mac-address', 'address', 'to-address', 'server', 'bridge-port']),
-    WinboxSubMenu('Hotspot IP Binding', '/ip/hotspot/ip-binding', 'mac-address', 'type', ['mac-address', 'address', 'to-address', 'type']),
-    WinboxSubMenu('Hotspot User Profiles', '/ip/hotspot/user/profile', 'name', 'shared-users', ['name', 'shared-users', 'rate-limit', 'transparent-proxy']),
-    WinboxSubMenu('Hotspot Server Profiles', '/ip/hotspot/profile', 'name', 'hotspot-address', ['name', 'hotspot-address', 'dns-name', 'html-directory']),
-    WinboxSubMenu('Hotspot Cookies', '/ip/hotspot/cookie', 'user', 'mac-address', ['user', 'mac-address', 'expires-in']),
-    WinboxSubMenu('Web Proxy', '/ip/proxy', 'enabled', 'port', ['enabled', 'port', 'cache-administrator']),
-    WinboxSubMenu('UPnP', '/ip/upnp', 'enabled', 'allow-disable-external-interface', ['enabled', 'allow-disable-external-interface']),
-    WinboxSubMenu('TFTP', '/ip/tftp', 'req-filename', 'real-filename', ['req-filename', 'real-filename', 'allow']),
-    WinboxSubMenu('Socks', '/ip/socks', 'enabled', 'port', ['enabled', 'port', 'connection-idle-timeout']),
-    WinboxSubMenu('SMB', '/ip/smb', 'enabled', 'domain', ['enabled', 'domain', 'comment']),
-    WinboxSubMenu('SNMP', '/snmp', 'enabled', 'contact', ['enabled', 'contact', 'location']),
-    WinboxSubMenu('Traffic Flow', '/ip/traffic-flow', 'enabled', 'interfaces', ['enabled', 'interfaces', 'cache-entries']),
-    WinboxSubMenu('Accounting', '/ip/accounting', 'enabled', 'account-local-traffic', ['enabled', 'account-local-traffic', 'threshold']),
-    WinboxSubMenu('Kid Control', '/ip/kid-control', 'enabled', null, ['enabled']),
-    WinboxSubMenu('Kid Control Devices', '/ip/kid-control/device', 'name', 'mac-address', ['name', 'mac-address', 'user', 'activity']),
-  ]),
-  WinboxCategory('IPv6', Icons.public_rounded, [
-    WinboxSubMenu('Addresses', '/ipv6/address', 'address', 'interface', ['address', 'from-pool', 'interface', 'actual-interface']),
-    WinboxSubMenu('Routes', '/ipv6/route', 'dst-address', 'gateway', ['dst-address', 'gateway', 'distance', 'metric']),
-    WinboxSubMenu('Neighbors', '/ipv6/neighbor', 'address', 'mac-address', ['address', 'mac-address', 'interface', 'status']),
-    WinboxSubMenu('DHCP Client', '/ipv6/dhcp-client', 'interface', 'pool-name', ['interface', 'status', 'pool-name', 'prefix']),
-    WinboxSubMenu('DHCP Server', '/ipv6/dhcp-server', 'name', 'interface', ['name', 'interface', 'address-pool']),
-    WinboxSubMenu('IP Pools', '/ipv6/pool', 'name', 'prefix', ['name', 'prefix', 'prefix-length']),
-    WinboxSubMenu('ND (Neighbor Disc.)', '/ipv6/nd', 'interface', 'ra-interval', ['interface', 'ra-interval', 'ra-lifetime']),
-    WinboxSubMenu('Firewall Filter', '/ipv6/firewall/filter', 'chain', 'action', ['chain', 'action', 'src-address', 'dst-address']),
-  ]),
-  WinboxCategory('Firewall', Icons.security_rounded, [
-    WinboxSubMenu('Filter Rules', '/ip/firewall/filter', 'chain', 'action', ['chain', 'action', 'src-address', 'dst-address', 'protocol', 'dst-port', 'comment']),
-    WinboxSubMenu('NAT Rules', '/ip/firewall/nat', 'chain', 'action', ['chain', 'action', 'to-addresses', 'to-ports', 'out-interface', 'comment']),
-    WinboxSubMenu('Mangle Rules', '/ip/firewall/mangle', 'chain', 'action', ['chain', 'action', 'new-packet-mark', 'new-connection-mark', 'passthrough']),
-    WinboxSubMenu('Raw Rules', '/ip/firewall/raw', 'chain', 'action', ['chain', 'action', 'src-address', 'dst-address']),
-    WinboxSubMenu('Address Lists', '/ip/firewall/address-list', 'list', 'address', ['list', 'address', 'timeout', 'comment']),
-    WinboxSubMenu('Connections', '/ip/firewall/connection', 'src-address', 'dst-address', ['protocol', 'src-address', 'dst-address', 'reply-src-address', 'tcp-state']),
-    WinboxSubMenu('Service Ports', '/ip/firewall/service-port', 'name', 'ports', ['name', 'ports']),
-    WinboxSubMenu('Layer7 Protocols', '/ip/firewall/layer7-protocol', 'name', 'regexp', ['name', 'regexp']),
-  ]),
-  WinboxCategory('Routing', Icons.directions_rounded, [
-    WinboxSubMenu('BGP Connections', '/routing/bgp/connection', 'name', 'remote.address', ['name', 'remote.address', 'remote.as', 'local.role']),
-    WinboxSubMenu('BGP Sessions', '/routing/bgp/session', 'name', 'remote.address', ['name', 'remote.address', 'state', 'uptime']),
-    WinboxSubMenu('BGP Templates', '/routing/bgp/template', 'name', 'as', ['name', 'as', 'routing-table']),
-    WinboxSubMenu('OSPF Instances', '/routing/ospf/instance', 'name', 'router-id', ['name', 'router-id', 'version']),
-    WinboxSubMenu('OSPF Areas', '/routing/ospf/area', 'name', 'instance', ['name', 'instance', 'area-id']),
-    WinboxSubMenu('OSPF Interfaces', '/routing/ospf/interface-template', 'area', 'interfaces', ['area', 'interfaces', 'cost', 'priority']),
-    WinboxSubMenu('RIP Instances', '/routing/rip/instance', 'name', 'version', ['name', 'version']),
-    WinboxSubMenu('Routing Filters', '/routing/filter/rule', 'chain', 'rule', ['chain', 'rule']),
-    WinboxSubMenu('Routing Tables', '/routing/table', 'name', 'fib', ['name', 'fib']),
-  ]),
-  WinboxCategory('Queues', Icons.network_check_rounded, [
-    WinboxSubMenu('Simple Queues', '/queue/simple', 'name', 'max-limit', ['name', 'target', 'max-limit', 'bytes', 'total-bytes', 'comment']),
-    WinboxSubMenu('Queue Tree', '/queue/tree', 'name', 'parent', ['name', 'parent', 'packet-mark', 'max-limit', 'priority']),
-    WinboxSubMenu('Queue Types', '/queue/type', 'name', 'kind', ['name', 'kind']),
-    WinboxSubMenu('Interface Queues', '/queue/interface', 'interface', 'queue', ['interface', 'queue']),
-  ]),
-  WinboxCategory('Files', Icons.folder_rounded, [
-    WinboxSubMenu('File Manager', '/file', 'name', 'size', ['name', 'type', 'size', 'creation-time']),
-  ]),
-  WinboxCategory('Log', Icons.receipt_long_rounded, [
-    WinboxSubMenu('System Logs', '/log', 'time', 'message', ['time', 'topics', 'message']),
-    WinboxSubMenu('Logging Rules', '/system/logging', 'topics', 'action', ['topics', 'action', 'prefix']),
-    WinboxSubMenu('Logging Actions', '/system/logging/action', 'name', 'target', ['name', 'target', 'remember']),
-  ]),
-  WinboxCategory('Radius', Icons.radio_button_checked_rounded, [
-    WinboxSubMenu('Radius Servers', '/radius', 'service', 'address', ['service', 'address', 'secret', 'authentication-port', 'accounting-port']),
-    WinboxSubMenu('Incoming', '/radius/incoming', 'port', null, ['accept', 'port']),
-  ]),
-  WinboxCategory('System', Icons.dns_rounded, [
-    WinboxSubMenu('Resources', '/system/resource', 'board-name', 'version', ['board-name', 'version', 'cpu-load', 'free-memory', 'total-memory', 'uptime']),
-    WinboxSubMenu('RouterBOARD', '/system/routerboard', 'model', 'current-firmware', ['routerboard', 'model', 'serial-number', 'current-firmware', 'upgrade-firmware']),
-    WinboxSubMenu('Health Sensors', '/system/health', 'name', 'value', ['name', 'value', 'type']),
-    WinboxSubMenu('RouterOS Users', '/user', 'name', 'group', ['name', 'group', 'last-logged-in']),
-    WinboxSubMenu('User Groups', '/user/group', 'name', 'policy', ['name', 'policy']),
-    WinboxSubMenu('Active Users', '/user/active', 'name', 'via', ['name', 'when', 'via', 'address']),
-    WinboxSubMenu('Packages', '/system/package', 'name', 'version', ['name', 'version', 'build-time']),
-    WinboxSubMenu('Clock', '/system/clock', 'time', 'date', ['time', 'date', 'time-zone-name']),
-    WinboxSubMenu('NTP Client', '/system/ntp/client', 'server-dns-names', 'status', ['enabled', 'mode', 'server-dns-names', 'status']),
-    WinboxSubMenu('Scripts', '/system/script', 'name', 'last-started', ['name', 'owner', 'last-started', 'run-count']),
-    WinboxSubMenu('Scheduler', '/system/scheduler', 'name', 'interval', ['name', 'start-date', 'start-time', 'interval', 'next-run']),
-    WinboxSubMenu('Certificates', '/certificate', 'name', 'common-name', ['name', 'common-name', 'fingerprint', 'invalid-after']),
-    WinboxSubMenu('Identity', '/system/identity', 'name', null, ['name']),
-    WinboxSubMenu('Watchdog', '/system/watchdog', 'watch-address', 'watchdog-timer', ['watch-address', 'watchdog-timer', 'ping-timeout']),
-    WinboxSubMenu('Auto Upgrade', '/system/upgrade', 'status', null, ['status']),
-    WinboxSubMenu('Reboot Router', 'SYSTEM_REBOOT', 'Reboot Perangkat MikroTik', null),
-    WinboxSubMenu('Shutdown Router', 'SYSTEM_SHUTDOWN', 'Matikan Router MikroTik', null),
-  ]),
-  WinboxCategory('Tools', Icons.terminal_rounded, [
-    WinboxSubMenu('Ping Diagnostic', 'PING_TOOL', 'Ping ICMP Tool', null),
-    WinboxSubMenu('Traceroute', 'TRACEROUTE_TOOL', 'Traceroute Network Path', null),
-    WinboxSubMenu('Profile CPU', 'PROFILE_TOOL', 'CPU Usage Per Process', null),
-    WinboxSubMenu('Netwatch', '/tool/netwatch', 'host', 'status', ['host', 'interval', 'timeout', 'status']),
-    WinboxSubMenu('IP Scan', '/tool/ip-scan', 'address-range', 'interface', ['address-range', 'interface']),
-    WinboxSubMenu('Bandwidth Test', '/tool/bandwidth-test', 'direction', 'protocol', ['direction', 'protocol']),
-    WinboxSubMenu('Packet Sniffer', '/tool/sniffer', 'streaming-server', 'file-name', ['streaming-server', 'file-name', 'file-limit']),
-    WinboxSubMenu('Email Config', '/tool/e-mail', 'server', 'from', ['server', 'port', 'user', 'from']),
-    WinboxSubMenu('SMS Config', '/tool/sms', 'port', 'channel', ['port', 'channel']),
-    WinboxSubMenu('MAC Server', '/tool/mac-server', 'interface', null, ['interface']),
-    WinboxSubMenu('New Terminal', 'CLI_TOOL', 'Command Line Runner', null),
-  ]),
-];
-
-
-#services_mikrotik_service
+// ==================== FILE: lib/services/mikrotik_service.dart ====================
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -734,6 +375,20 @@ class MikroTikService {
   Future<void> _commandQueue = Future.value();
   bool _isDisposed = false;
 
+  final _connectionStateController = StreamController<bool>.broadcast();
+  Stream<bool> get connectionStateStream => _connectionStateController.stream;
+  bool _lastKnownConnected = true;
+  bool get isConnected => _lastKnownConnected;
+
+  void _notifyConnectionState(bool connected) {
+    if (_lastKnownConnected != connected) {
+      _lastKnownConnected = connected;
+      if (!_connectionStateController.isClosed) {
+        _connectionStateController.add(connected);
+      }
+    }
+  }
+
   MikroTikService(this.profile);
 
   /// Menutup koneksi persistent socket saat keluar atau ganti router
@@ -741,6 +396,9 @@ class MikroTikService {
     _isDisposed = true;
     await _persistentBinaryClient?.close();
     _persistentBinaryClient = null;
+    if (!_connectionStateController.isClosed) {
+      await _connectionStateController.close();
+    }
   }
 
   /// Mengecek hak akses user dari /user dan /user/group di MikroTik secara serentak
@@ -825,8 +483,11 @@ class MikroTikService {
   Future<bool> checkConnection() async {
     try {
       final res = await runCommand('/system/identity/print');
-      return res.isNotEmpty;
+      final ok = res.isNotEmpty;
+      _notifyConnectionState(ok);
+      return ok;
     } catch (_) {
+      _notifyConnectionState(false);
       return false;
     }
   }
@@ -1527,9 +1188,14 @@ class MikroTikService {
   }) async {
     if (profile.protocol == ApiProtocol.routerOsApi8728) {
       if (_persistentBinaryClient == null || _persistentBinaryClient!.isClosed) {
-        final client = _RouterOsBinaryClient(profile.host, profile.port);
+        final client = _RouterOsBinaryClient(
+          profile.host,
+          profile.port,
+          onConnectionChanged: _notifyConnectionState,
+        );
         await client.connectAndLogin(profile.username, profile.password);
         _persistentBinaryClient = client;
+        _notifyConnectionState(true);
       }
 
       try {
@@ -1537,9 +1203,12 @@ class MikroTikService {
         if (params != null) {
           params.forEach((k, v) => words.add('=$k=$v'));
         }
-        return await _persistentBinaryClient!.sendCommand(words);
+        final res = await _persistentBinaryClient!.sendCommand(words);
+        _notifyConnectionState(true);
+        return res;
       } catch (e) {
         // Socket terputus atau timeout, tutup client agar perintah berikutnya melakukan auto-reconnect
+        _notifyConnectionState(false);
         await _persistentBinaryClient?.close();
         _persistentBinaryClient = null;
         rethrow;
@@ -1550,7 +1219,7 @@ class MikroTikService {
       final url = '$scheme://${profile.host}:${profile.port}/rest$cleanPath';
 
       final httpClient = HttpClient()
-        ..connectionTimeout = const Duration(milliseconds: 2000)
+        ..connectionTimeout = const Duration(milliseconds: 1500)
         ..badCertificateCallback = (cert, host, port) => true;
 
       try {
@@ -1571,11 +1240,13 @@ class MikroTikService {
         final body = await response.transform(utf8.decoder).join();
 
         if (response.statusCode == 401) {
+          _notifyConnectionState(false);
           throw Exception('Username atau password salah (401).');
         }
         if (response.statusCode >= 400) {
           throw Exception('HTTP ${response.statusCode}: $body');
         }
+        _notifyConnectionState(true);
         if (body.isEmpty) return [];
 
         final decoded = jsonDecode(body);
@@ -1591,6 +1262,9 @@ class MikroTikService {
           ];
         }
         return [];
+      } catch (e) {
+        _notifyConnectionState(false);
+        rethrow;
       } finally {
         httpClient.close();
       }
@@ -1602,6 +1276,7 @@ class MikroTikService {
 class _RouterOsBinaryClient {
   final String host;
   final int port;
+  final void Function(bool isConnected)? onConnectionChanged;
   Socket? _socket;
   final List<int> _buffer = [];
   final List<String> _currentSentence = [];
@@ -1610,19 +1285,24 @@ class _RouterOsBinaryClient {
 
   bool get isClosed => _isClosed;
 
-  _RouterOsBinaryClient(this.host, this.port);
+  _RouterOsBinaryClient(this.host, this.port, {this.onConnectionChanged});
 
   Future<void> connectAndLogin(String username, String password) async {
     _isClosed = false;
-    _socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 2000));
+    _socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 1500));
+    _socket!.setOption(SocketOption.tcpNoDelay, true);
+    onConnectionChanged?.call(true);
+
     _socket!.listen(
       _onData,
       onError: (e) {
         _isClosed = true;
+        onConnectionChanged?.call(false);
         if (!_controller.isClosed) _controller.addError(e);
       },
       onDone: () {
         _isClosed = true;
+        onConnectionChanged?.call(false);
         if (!_controller.isClosed) _controller.close();
       },
       cancelOnError: false,
@@ -1731,9 +1411,11 @@ class _RouterOsBinaryClient {
     await _socket!.flush();
 
     return completer.future.timeout(
-      const Duration(milliseconds: 2500),
+      const Duration(milliseconds: 1800),
       onTimeout: () {
         sub.cancel();
+        _isClosed = true;
+        onConnectionChanged?.call(false);
         throw TimeoutException('Timeout menunggu respons router.');
       },
     );
@@ -1751,6 +1433,7 @@ class _RouterOsBinaryClient {
 
   Future<void> close() async {
     _isClosed = true;
+    onConnectionChanged?.call(false);
     try {
       await _socket?.close();
       _socket?.destroy();
@@ -1760,7 +1443,7 @@ class _RouterOsBinaryClient {
   }
 }
 
-#services_profile_storage_service
+// ==================== FILE: lib/services/profile_storage_service.dart ====================
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/router_models.dart';
@@ -1840,101 +1523,7 @@ class ProfileStorageService {
   }
 }
 
-#services_router_discovery_service
-import 'dart:async';
-import 'dart:io';
-
-class DiscoveredRouter {
-  final String ip;
-  final int port;
-  final String label;
-
-  DiscoveredRouter({
-    required this.ip,
-    required this.port,
-    required this.label,
-  });
-}
-
-class RouterDiscoveryService {
-  // Port umum MikroTik: 8728 (API Binary), 80 (HTTP REST), 443 (HTTPS REST), 8729 (API SSL)
-  static const List<int> _portsToProbe = [8728, 80, 443, 8729];
-
-  /// Pindai jaringan lokal Wi-Fi untuk menemukan router MikroTik aktif
-  Future<DiscoveredRouter?> discoverActiveRouter({
-    Duration probeTimeout = const Duration(milliseconds: 900),
-  }) async {
-    final candidateIps = await _getCandidateIps();
-
-    // Pindai kandidat gateway secara paralel
-    final futures = candidateIps.map((ip) => _probeHost(ip, probeTimeout)).toList();
-    final results = await Future.wait(futures);
-
-    // Prioritaskan port 8728 (Native Binary API) jika ada beberapa port terbuka
-    DiscoveredRouter? bestResult;
-    for (final r in results) {
-      if (r != null) {
-        if (r.port == 8728) return r;
-        bestResult ??= r;
-      }
-    }
-
-    return bestResult;
-  }
-
-  Future<List<String>> _getCandidateIps() async {
-    final candidates = <String>{};
-
-    try {
-      final interfaces = await NetworkInterface.list(
-        type: InternetAddressType.IPv4,
-        includeLinkLocal: false,
-      );
-
-      for (final iface in interfaces) {
-        for (final addr in iface.addresses) {
-          final ip = addr.address;
-          if (ip == '127.0.0.1' || ip.startsWith('169.254.')) continue;
-
-          final parts = ip.split('.');
-          if (parts.length == 4) {
-            final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
-            // Default gateway router pada umumnya (.1 atau .254)
-            candidates.add('$prefix.1');
-            candidates.add('$prefix.254');
-          }
-        }
-      }
-    } catch (_) {}
-
-    // IP Default bawaan pabrik MikroTik
-    candidates.add('192.168.88.1');
-    candidates.add('192.168.1.1');
-    candidates.add('10.0.0.1');
-
-    return candidates.toList();
-  }
-
-  Future<DiscoveredRouter?> _probeHost(String host, Duration timeout) async {
-    for (final port in _portsToProbe) {
-      try {
-        final socket = await Socket.connect(host, port, timeout: timeout);
-        await socket.close();
-        return DiscoveredRouter(
-          ip: host,
-          port: port,
-          label: 'Router ($host)',
-        );
-      } catch (_) {
-        // Port tidak merespons, coba port berikutnya
-      }
-    }
-    return null;
-  }
-}
-
-
-#screens_profile_list_screen
+// ==================== FILE: lib/screens/profile_list_screen.dart ====================
 import 'package:flutter/material.dart';
 import '../models/router_models.dart';
 import '../services/mikrotik_service.dart';
@@ -2214,7 +1803,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                 ),
                 child: const Icon(Icons.router_rounded, color: Color(0xFF007AFF), size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2232,7 +1821,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                         if (p.rolePreference != LoginRolePreference.auto) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
                               color: p.rolePreference == LoginRolePreference.technician
                                   ? const Color(0xFF007AFF).withValues(alpha: 0.1)
@@ -2242,7 +1831,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                             child: Text(
                               p.rolePreference.label,
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 9.5,
                                 fontWeight: FontWeight.w600,
                                 color: p.rolePreference == LoginRolePreference.technician
                                     ? const Color(0xFF007AFF)
@@ -2256,12 +1845,17 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '${p.username}@${p.host}:${p.port}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 tooltip: 'Hapus',
                 icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFF8E8E93), size: 18),
                 onPressed: _isConnecting ? null : () => _deleteProfile(p),
@@ -2272,11 +1866,13 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                   backgroundColor: const Color(0xFF007AFF),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: _isConnecting ? null : () => _connectAndSave(p),
-                child: const Text('Hubungkan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                child: const Text('Hubungkan', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -2563,7 +2159,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
 }
 
 
-#screens_router_dashboard_screen
+// ==================== FILE: lib/screens/router_dashboard_screen.dart ====================
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/router_models.dart';
@@ -2595,25 +2191,46 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
 
   bool _isOnline = true;
   Timer? _liveHeartbeatTimer;
+  StreamSubscription<bool>? _connectionSub;
 
   @override
   void initState() {
     super.initState();
     _service = MikroTikService(widget.profile);
     _data = widget.initialData;
+    _subscribeConnectionStream();
     _startLiveHeartbeat();
   }
 
   @override
   void dispose() {
+    _connectionSub?.cancel();
     _liveHeartbeatTimer?.cancel();
     _service.dispose();
     super.dispose();
   }
 
+  void _subscribeConnectionStream() {
+    _connectionSub?.cancel();
+    _connectionSub = _service.connectionStateStream.listen((isConnected) {
+      if (!mounted) return;
+      if (_isOnline != isConnected) {
+        setState(() {
+          _isOnline = isConnected;
+          if (isConnected) {
+            _showSnack('Koneksi router kembali aktif (Online).');
+          } else {
+            _showSnack('Koneksi ke router terputus (Offline)!', isError: true);
+          }
+        });
+      }
+    });
+  }
+
   void _startLiveHeartbeat() {
     _liveHeartbeatTimer?.cancel();
-    _liveHeartbeatTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+    // Heartbeat ringan setiap 1200ms untuk deteksi instan jika terjadi silent drop / kabel putus
+    _liveHeartbeatTimer = Timer.periodic(const Duration(milliseconds: 1200), (_) async {
       if (!mounted || _isLoading) return;
       final isAlive = await _service.checkConnection();
       if (!mounted) return;
@@ -2623,6 +2240,8 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
           _isOnline = isAlive;
           if (isAlive) {
             _showSnack('Koneksi router kembali aktif (Online).');
+          } else {
+            _showSnack('Koneksi ke router terputus (Offline)!', isError: true);
           }
         });
       }
@@ -2696,23 +2315,25 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
+        titleSpacing: 16,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
                   child: Text(
                     _data['identity']?.toString() ?? widget.profile.label,
-                    style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 // REAL-TIME 1:1 LIVE STATUS PILL
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                   decoration: BoxDecoration(
                     color: _isOnline ? const Color(0xFF34C759).withValues(alpha: 0.12) : const Color(0xFFFF3B30).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(5),
@@ -2751,16 +2372,16 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
             if (_role.isUser)
               Container(
                 margin: const EdgeInsets.only(top: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                 decoration: BoxDecoration(
                   color: const Color(0xFF007AFF).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(5),
                   border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.25), width: 0.5),
                 ),
                 child: const Text(
                   'MODE USER',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF007AFF),
                     letterSpacing: 0.3,
@@ -2770,23 +2391,28 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
             else
               Text(
                 '${widget.profile.host} • ${_role.roleBadge}',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93)),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
           ],
         ),
         actions: [
           IconButton(
+            visualDensity: VisualDensity.compact,
             tooltip: 'Segarkan',
             icon: _isLoading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.refresh_rounded),
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _isLoading ? null : _refresh,
           ),
           IconButton(
+            visualDensity: VisualDensity.compact,
             tooltip: 'Ganti Router',
-            icon: const Icon(Icons.swap_horiz_rounded),
+            icon: const Icon(Icons.swap_horiz_rounded, size: 20),
             onPressed: _switchRouter,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -2925,7 +2551,7 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
 }
 
 
-#widgets_customer_tab_view
+// ==================== FILE: lib/widgets/customer_tab_view.dart ====================
 import 'package:flutter/material.dart';
 import '../models/router_models.dart';
 import '../services/mikrotik_service.dart';
@@ -3682,7 +3308,1170 @@ class _CustomerTabViewState extends State<CustomerTabView> {
 }
 
 
-#widgets_winbox_dialogs
+// ==================== FILE: lib/widgets/winbox_panel_view.dart ====================
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../models/router_models.dart';
+import '../models/winbox_models.dart';
+import '../services/mikrotik_service.dart';
+import 'winbox_dialogs.dart';
+import 'winbox_item_inspector.dart';
+import 'winbox_tools_view.dart';
+
+class WinboxPanelView extends StatefulWidget {
+  final MikroTikService service;
+  final Map<String, dynamic> data;
+  final Function(String, {bool isError}) showSnack;
+
+  const WinboxPanelView({
+    super.key,
+    required this.service,
+    required this.data,
+    required this.showSnack,
+  });
+
+  @override
+  State<WinboxPanelView> createState() => _WinboxPanelViewState();
+}
+
+class _WinboxPanelViewState extends State<WinboxPanelView> {
+  int _activeCategory = 6; // Default: IP
+  int _activeSubMenu = 0;   // Default: Addresses
+  String _searchQuery = '';
+  bool _isSearchOpen = false;
+
+  List<Map<String, String>> _currentMenuItems = [];
+  bool _isMenuLoading = false;
+  final _searchController = TextEditingController();
+
+  bool _safeModeActive = false;
+  bool _isAutoSyncLive = true;
+  Timer? _liveAutoSyncTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActiveWinboxSubMenu();
+    _startLiveAutoSync();
+  }
+
+  @override
+  void dispose() {
+    _liveAutoSyncTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _startLiveAutoSync() {
+    _liveAutoSyncTimer?.cancel();
+    _liveAutoSyncTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) {
+      if (!mounted || !_isAutoSyncLive || _isMenuLoading || _isSearchOpen || _isSpecialView) return;
+      _loadActiveWinboxSubMenu(silent: true);
+    });
+  }
+
+  WinboxCategory get _activeCat => winboxCategories[_activeCategory];
+  WinboxSubMenu get _activeSub => _activeCat.subMenus[_activeSubMenu];
+
+  bool get _isSpecialView {
+    final p = _activeSub.path;
+    return p == 'PING_TOOL' ||
+        p == 'TRACEROUTE_TOOL' ||
+        p == 'PROFILE_TOOL' ||
+        p == 'CLI_TOOL' ||
+        p == 'SYSTEM_REBOOT' ||
+        p == 'SYSTEM_SHUTDOWN';
+  }
+
+  bool get _isAddable {
+    final p = _activeSub.path;
+    if (_isSpecialView) return false;
+    return p != '/log' &&
+        p != '/system/resource' &&
+        p != '/system/routerboard' &&
+        p != '/system/health' &&
+        p != '/user/active';
+  }
+
+  Future<void> _loadActiveWinboxSubMenu({bool silent = false}) async {
+    final sub = _activeSub;
+    if (_isSpecialView) {
+      if (!silent && mounted) setState(() => _isMenuLoading = false);
+      return;
+    }
+
+    if (!silent && mounted) {
+      setState(() => _isMenuLoading = true);
+    }
+
+    try {
+      final printPath = sub.path.endsWith('/print') ? sub.path : '${sub.path}/print';
+      final res = await widget.service.fetchMenu(printPath);
+      if (mounted) {
+        setState(() => _currentMenuItems = res);
+      }
+    } catch (_) {
+      if (!silent && mounted) setState(() => _currentMenuItems = []);
+    } finally {
+      if (!silent && mounted) setState(() => _isMenuLoading = false);
+    }
+  }
+
+  List<Map<String, String>> get _filteredItems {
+    if (_searchQuery.isEmpty) return _currentMenuItems;
+    final q = _searchQuery.toLowerCase();
+    return _currentMenuItems.where((item) {
+      return item.values.any((v) => v.toLowerCase().contains(q));
+    }).toList();
+  }
+
+  void _onAdd() {
+    final sub = _activeSub;
+    final ifaces = (widget.data['interfaces'] as List<Map<String, String>>?) ?? [];
+
+    if (sub.path == '/ip/address') {
+      WinboxDialogs.showAddIpDialog(
+        context: context,
+        service: widget.service,
+        interfaces: ifaces,
+        onSuccess: _loadActiveWinboxSubMenu,
+        showSnack: widget.showSnack,
+      );
+    } else if (sub.path == '/ip/route') {
+      WinboxDialogs.showAddRouteDialog(
+        context: context,
+        service: widget.service,
+        onSuccess: _loadActiveWinboxSubMenu,
+        showSnack: widget.showSnack,
+      );
+    } else if (sub.path == '/queue/simple') {
+      WinboxDialogs.showAddQueueDialog(
+        context: context,
+        service: widget.service,
+        onSuccess: _loadActiveWinboxSubMenu,
+        showSnack: widget.showSnack,
+      );
+    } else if (sub.path == '/ppp/secret') {
+      WinboxDialogs.showAddPppSecretDialog(
+        context: context,
+        service: widget.service,
+        onSuccess: _loadActiveWinboxSubMenu,
+        showSnack: widget.showSnack,
+      );
+    } else {
+      final role = widget.data['role'] as UserRoleInfo?;
+      WinboxDialogs.showGenericAddDialog(
+        context: context,
+        service: widget.service,
+        basePath: sub.path,
+        canManageUsers: role?.canManageUsers ?? true,
+        onSuccess: _loadActiveWinboxSubMenu,
+        showSnack: widget.showSnack,
+      );
+    }
+  }
+
+  Future<void> _onToggleItem(Map<String, String> item, bool enable) async {
+    final id = item['.id'];
+    if (id == null) return;
+    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item';
+    final actionText = enable ? 'mengaktifkan (enable)' : 'menonaktifkan (disable)';
+
+    final confirm = await WinboxDialogs.showConfirmActionDialog(
+      context: context,
+      title: 'Konfirmasi',
+      message: 'Apakah Anda yakin ingin $actionText "$name" (${_activeSub.path})?',
+      confirmLabel: enable ? 'Yakin (Enable)' : 'Yakin (Disable)',
+      confirmColor: enable ? const Color(0xFF34C759) : const Color(0xFFFF9500),
+    );
+    if (!confirm) return;
+
+    try {
+      final cmd = enable ? '${_activeSub.path}/enable' : '${_activeSub.path}/disable';
+      await widget.service.executePath(cmd, params: {'.id': id});
+      widget.showSnack(enable ? 'Item "$name" diaktifkan (Enabled).' : 'Item "$name" dinonaktifkan (Disabled).');
+      await _loadActiveWinboxSubMenu();
+    } catch (e) {
+      widget.showSnack('Gagal: $e', isError: true);
+    }
+  }
+
+  void _onCommentItem(Map<String, String> item) {
+    final id = item['.id'];
+    if (id == null) return;
+    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item';
+    final commentCtrl = TextEditingController(text: item['comment'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text('Winbox Comment ($name)'),
+        content: TextField(
+          controller: commentCtrl,
+          autofocus: true,
+          style: const TextStyle(fontSize: 13.5, color: Color(0xFF1C1C1E)),
+          decoration: const InputDecoration(hintText: 'Tulis komentar untuk item ini...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF007AFF),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            onPressed: () async {
+              final newComment = commentCtrl.text.trim();
+              final oldComment = (item['comment'] ?? '').trim();
+              if (newComment == oldComment) {
+                Navigator.pop(ctx);
+                return;
+              }
+
+              final confirm = await WinboxDialogs.showConfirmActionDialog(
+                context: context,
+                title: 'Konfirmasi Ubah Komentar',
+                message: 'Apakah Anda sudah yakin ingin menerapkan komentar ini pada "$name"?\n\n• Komentar: "${newComment.isEmpty ? "(dikosongkan)" : newComment}"',
+                confirmLabel: 'Yakin & Simpan',
+              );
+              if (!confirm) return;
+
+              Navigator.pop(ctx);
+              try {
+                await widget.service.setComment(_activeSub.path, id, newComment);
+                widget.showSnack('Komentar untuk "$name" berhasil disimpan.');
+                await _loadActiveWinboxSubMenu();
+              } catch (e) {
+                widget.showSnack('Gagal: $e', isError: true);
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onRemoveItem(Map<String, String> item) async {
+    final id = item['.id'];
+    if (id == null) return;
+    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item';
+
+    final confirm = await WinboxDialogs.showConfirmActionDialog(
+      context: context,
+      title: 'Hapus Item (Winbox Remove)?',
+      message: 'Apakah Anda yakin ingin menghapus "$name" (${_activeSub.path}) secara permanen dari router?',
+      confirmLabel: 'Hapus Permanen',
+      isDestructive: true,
+    );
+
+    if (confirm) {
+      try {
+        await widget.service.executePath('${_activeSub.path}/remove', params: {'.id': id});
+        widget.showSnack('Item "$name" berhasil dihapus.');
+        await _loadActiveWinboxSubMenu();
+      } catch (e) {
+        widget.showSnack('Gagal: $e', isError: true);
+      }
+    }
+  }
+
+  void _showItemActionSheet(Map<String, String> item) {
+    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Detail Item';
+    final disabled = item['disabled'] == 'true';
+    final hasId = item['.id'] != null;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Handle Bar
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(color: const Color(0xFFD1D1D6), borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Title Header
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          _activeSub.path,
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: disabled ? const Color(0xFFFF3B30).withValues(alpha: 0.1) : const Color(0xFF34C759).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      disabled ? 'NONAKTIF' : 'AKTIF',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: disabled ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0xFFE5E5EA)),
+              const SizedBox(height: 8),
+
+              // Action 1: Edit & Inspector
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: const Color(0xFF007AFF).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.edit_note_rounded, color: Color(0xFF007AFF), size: 20),
+                ),
+                title: const Text('Detail & Edit Properti', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Lihat dan ubah seluruh konfigurasi RouterOS', style: TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  WinboxItemInspector.show(
+                    context: context,
+                    item: item,
+                    basePath: _activeSub.path,
+                    service: widget.service,
+                    onRefresh: _loadActiveWinboxSubMenu,
+                    showSnack: widget.showSnack,
+                  );
+                },
+              ),
+
+              // Action 2: Toggle Enable / Disable
+              if (hasId)
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: (disabled ? const Color(0xFF34C759) : const Color(0xFFFF9500)).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      disabled ? Icons.check_circle_outline_rounded : Icons.block_rounded,
+                      color: disabled ? const Color(0xFF34C759) : const Color(0xFFFF9500),
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(disabled ? 'Aktifkan Item (Enable)' : 'Nonaktifkan Item (Disable)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  subtitle: Text(disabled ? 'Nyalakan kembali item ini di RouterOS' : 'Matikan sementara item ini tanpa menghapusnya', style: const TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _onToggleItem(item, disabled);
+                  },
+                ),
+
+              // Action 3: Comment
+              if (hasId)
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(color: const Color(0xFF5856D6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF5856D6), size: 18),
+                  ),
+                  title: const Text('Beri / Ubah Komentar', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  subtitle: const Text('Tambahkan catatan identifikasi (;;; comment)', style: TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _onCommentItem(item);
+                  },
+                ),
+
+              // Action 4: Delete
+              if (hasId)
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(color: const Color(0xFFFF3B30).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30), size: 20),
+                  ),
+                  title: const Text('Hapus Item', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFFFF3B30))),
+                  subtitle: const Text('Hapus permanen item ini dari konfigurasi router', style: TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _onRemoveItem(item);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openMenuPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ModernMenuPickerSheet(
+        activePath: _activeSub.path,
+        onSelect: (catIdx, subIdx) {
+          Navigator.pop(ctx);
+          setState(() {
+            _activeCategory = catIdx;
+            _activeSubMenu = subIdx;
+            _searchQuery = '';
+            _isSearchOpen = false;
+            _searchController.clear();
+          });
+          _loadActiveWinboxSubMenu();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(52),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: _isSearchOpen
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            autofocus: true,
+                            style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E)),
+                            decoration: InputDecoration(
+                              hintText: 'Cari di ${_activeSub.title}...',
+                              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                              prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF8E8E93)),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            onChanged: (v) => setState(() => _searchQuery = v),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF8E8E93)),
+                          onPressed: () {
+                            setState(() {
+                              _isSearchOpen = false;
+                              _searchQuery = '';
+                              _searchController.clear();
+                            });
+                          },
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        // TAPPABLE TITLE TO SWITCH MENU
+                        Expanded(
+                          child: InkWell(
+                            onTap: _openMenuPicker,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_activeCat.icon, size: 18, color: const Color(0xFF007AFF)),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      _activeSub.title,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1C1C1E),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF8E8E93)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+
+                        // LIVE 1:1 REALTIME PILL
+                        InkWell(
+                          onTap: () {
+                            setState(() => _isAutoSyncLive = !_isAutoSyncLive);
+                            widget.showSnack(_isAutoSyncLive ? 'Live Sync 1:1 Aktif (Update tiap 2 detik).' : 'Live Sync dijeda.');
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _isAutoSyncLive ? const Color(0xFF34C759).withValues(alpha: 0.12) : const Color(0xFF8E8E93).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: _isAutoSyncLive ? const Color(0xFF34C759).withValues(alpha: 0.3) : const Color(0xFF8E8E93).withValues(alpha: 0.3),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: _isAutoSyncLive ? const Color(0xFF34C759) : const Color(0xFF8E8E93),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _isAutoSyncLive ? '1:1 LIVE' : 'PAUSED',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: _isAutoSyncLive ? const Color(0xFF34C759) : const Color(0xFF8E8E93),
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // SEARCH ACTION
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          tooltip: 'Cari',
+                          icon: const Icon(Icons.search_rounded, size: 19, color: Color(0xFF1C1C1E)),
+                          onPressed: () => setState(() => _isSearchOpen = true),
+                        ),
+
+                        // ADD ACTION
+                        if (_isAddable)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            tooltip: 'Tambah Item',
+                            icon: const Icon(Icons.add_rounded, size: 21, color: Color(0xFF007AFF)),
+                            onPressed: _onAdd,
+                          ),
+
+                        // MORE OPTIONS
+                        PopupMenuButton<String>(
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          icon: const Icon(Icons.more_horiz_rounded, size: 20, color: Color(0xFF1C1C1E)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          onSelected: (val) async {
+                            if (val == 'safe') {
+                              setState(() => _safeModeActive = !_safeModeActive);
+                              widget.showSnack(_safeModeActive ? 'Safe Mode Aktif.' : 'Safe Mode Dinonaktifkan.');
+                            } else if (val == 'refresh') {
+                              await _loadActiveWinboxSubMenu();
+                            } else if (val == 'terminal') {
+                              final ref = findWinboxMenuByPath('CLI_TOOL');
+                              if (ref != null) {
+                                setState(() {
+                                  _activeCategory = ref.categoryIndex;
+                                  _activeSubMenu = ref.subMenuIndex;
+                                });
+                              }
+                            } else if (val == 'reboot') {
+                              WinboxDialogs.showConfirmRebootDialog(
+                                context: context,
+                                service: widget.service,
+                                showSnack: widget.showSnack,
+                              );
+                            }
+                          },
+                          itemBuilder: (ctx) => [
+                            PopupMenuItem(
+                              value: 'safe',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.shield_rounded, size: 18, color: _safeModeActive ? const Color(0xFF34C759) : const Color(0xFF8E8E93)),
+                                  const SizedBox(width: 10),
+                                  Text(_safeModeActive ? 'Safe Mode (Aktif)' : 'Safe Mode'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'refresh',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF007AFF)),
+                                  SizedBox(width: 10),
+                                  Text('Segarkan Data'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'terminal',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.terminal_rounded, size: 18, color: Color(0xFF1C1C1E)),
+                                  SizedBox(width: 10),
+                                  Text('Terminal CLI'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'reboot',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.restart_alt_rounded, size: 18, color: Color(0xFFFF9500)),
+                                  SizedBox(width: 10),
+                                  Text('Reboot Router'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    final sub = _activeSub;
+
+    if (sub.path == 'PING_TOOL') {
+      return PingToolWidget(service: widget.service);
+    } else if (sub.path == 'TRACEROUTE_TOOL') {
+      return TracerouteToolWidget(service: widget.service);
+    } else if (sub.path == 'PROFILE_TOOL') {
+      return CpuProfileToolWidget(service: widget.service);
+    } else if (sub.path == 'CLI_TOOL') {
+      return CliTerminalWidget(service: widget.service);
+    } else if (sub.path == 'SYSTEM_REBOOT' || sub.path == 'SYSTEM_SHUTDOWN') {
+      return _buildSystemActionView(sub);
+    }
+
+    if (_isMenuLoading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    final items = _filteredItems;
+
+    return RefreshIndicator(
+      onRefresh: _loadActiveWinboxSubMenu,
+      child: items.isEmpty
+          ? Center(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.inbox_rounded, size: 40, color: Color(0xFFC7C7CC)),
+                      const SizedBox(height: 10),
+                      Text(
+                        _currentMenuItems.isEmpty ? 'Belum ada data di ${sub.title}.' : 'Tidak ada hasil untuk "$_searchQuery".',
+                        style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (_isAddable && _currentMenuItems.isEmpty) ...[
+                        const SizedBox(height: 14),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF007AFF),
+                            side: const BorderSide(color: Color(0xFF007AFF), width: 0.8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 16),
+                          label: const Text('Tambah Data Baru', style: TextStyle(fontSize: 12.5)),
+                          onPressed: _onAdd,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              itemCount: items.length,
+              itemBuilder: (context, idx) {
+                final item = items[idx];
+                final primary = item[sub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item $idx';
+                final secondary = sub.secondaryField != null ? item[sub.secondaryField!] : null;
+                final disabled = item['disabled'] == 'true';
+                final running = item['running'] == 'true';
+                final comment = item['comment'];
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => _showItemActionSheet(item),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (comment != null && comment.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                ';;; $comment',
+                                style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Color(0xFF007AFF)),
+                              ),
+                            ),
+                          Row(
+                            children: [
+                              // Status Dot
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: disabled
+                                      ? const Color(0xFFFF3B30)
+                                      : (running ? const Color(0xFF34C759) : const Color(0xFF8E8E93)),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+
+                              // Primary Field
+                              Expanded(
+                                child: Text(
+                                  primary,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: disabled ? const Color(0xFF8E8E93) : const Color(0xFF1C1C1E),
+                                    decoration: disabled ? TextDecoration.lineThrough : null,
+                                  ),
+                                ),
+                              ),
+
+                              // Secondary Field
+                              if (secondary != null) ...[
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF2F2F7),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      secondary,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF6C6C70)),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(width: 6),
+                              const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFFC7C7CC)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildSystemActionView(WinboxSubMenu sub) {
+    final isReboot = sub.path == 'SYSTEM_REBOOT';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isReboot ? Icons.restart_alt_rounded : Icons.power_settings_new_rounded,
+                color: isReboot ? const Color(0xFFFF9500) : const Color(0xFFFF3B30),
+                size: 36,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isReboot ? 'Reboot Router MikroTik' : 'Matikan Router',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isReboot
+                    ? 'Router akan memulai ulang seluruh sistem. Sesi aktif akan terputus sesaat.'
+                    : 'Router akan dimatikan secara aman. Daya harus dinyalakan kembali secara manual.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFF8E8E93), height: 1.4),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isReboot ? const Color(0xFFFF9500) : const Color(0xFFFF3B30),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    if (isReboot) {
+                      WinboxDialogs.showConfirmRebootDialog(
+                        context: context,
+                        service: widget.service,
+                        showSnack: widget.showSnack,
+                      );
+                    } else {
+                      WinboxDialogs.showConfirmShutdownDialog(
+                        context: context,
+                        service: widget.service,
+                        showSnack: widget.showSnack,
+                      );
+                    }
+                  },
+                  child: Text(isReboot ? 'Reboot Sekarang' : 'Shutdown Sekarang', style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ===========================================================================
+// ULTRA-MINIMALIST MENU PICKER SHEET
+// ===========================================================================
+
+class _ModernMenuPickerSheet extends StatefulWidget {
+  final String activePath;
+  final Function(int categoryIndex, int subMenuIndex) onSelect;
+
+  const _ModernMenuPickerSheet({
+    required this.activePath,
+    required this.onSelect,
+  });
+
+  @override
+  State<_ModernMenuPickerSheet> createState() => _ModernMenuPickerSheetState();
+}
+
+class _ModernMenuPickerSheetState extends State<_ModernMenuPickerSheet> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  final bool _showAllCategories = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final searchResults = _searchQuery.isNotEmpty ? searchWinboxMenus(_searchQuery) : <WinboxMenuItemReference>[];
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.92,
+      minChildSize: 0.45,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle Bar
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(color: const Color(0xFFD1D1D6), borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Header Row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+                  const Text('Pilih Menu Winbox', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E))),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF8E8E93)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Search Box
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F2F7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(fontSize: 13.5, color: Color(0xFF1C1C1E)),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF8E8E93)),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 16),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    hintText: 'Cari menu (misal: nat, lease, queue, vlan)...',
+                    hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFFE5E5EA)),
+
+            // Content Area
+            Expanded(
+              child: _searchQuery.isNotEmpty
+                  ? (searchResults.isEmpty
+                      ? const Center(child: Text('Tidak ada menu yang cocok.', style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13)))
+                      : ListView.separated(
+                          controller: scrollCtrl,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: searchResults.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE5E5EA)),
+                          itemBuilder: (ctx, idx) {
+                            final ref = searchResults[idx];
+                            final isCurrent = ref.subMenu.path == widget.activePath;
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              leading: Icon(ref.category.icon, size: 18, color: const Color(0xFF007AFF)),
+                              title: Text(
+                                ref.subMenu.title,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isCurrent ? const Color(0xFF007AFF) : const Color(0xFF1C1C1E),
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${ref.category.title} • ${ref.subMenu.path}',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
+                              ),
+                              trailing: isCurrent ? const Icon(Icons.check_rounded, color: Color(0xFF007AFF), size: 18) : null,
+                              onTap: () => widget.onSelect(ref.categoryIndex, ref.subMenuIndex),
+                            );
+                          },
+                        ))
+                  : ListView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      children: [
+                        // QUICK GROUPS
+                        ...quickMenuGroups.map((group) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(group.icon, size: 15, color: group.color),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      group.title.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: group.color,
+                                        letterSpacing: 0.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: group.paths.map((p) {
+                                    final ref = findWinboxMenuByPath(p);
+                                    if (ref == null) return const SizedBox.shrink();
+                                    final isCurrent = ref.subMenu.path == widget.activePath;
+
+                                    return InkWell(
+                                      onTap: () => widget.onSelect(ref.categoryIndex, ref.subMenuIndex),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: isCurrent ? const Color(0xFF007AFF) : const Color(0xFFF2F2F7),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: isCurrent ? Colors.transparent : const Color(0xFFE5E5EA), width: 0.5),
+                                        ),
+                                        child: Text(
+                                          ref.subMenu.title,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                            color: isCurrent ? Colors.white : const Color(0xFF1C1C1E),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+
+                        const SizedBox(height: 10),
+                        const Divider(height: 1, color: Color(0xFFE5E5EA)),
+                        const SizedBox(height: 10),
+
+                        // EXPANDABLE FULL 100+ DIRECTORY
+                        Theme(
+                          data: Theme.of(ctx).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.folder_special_rounded, color: Color(0xFF007AFF), size: 20),
+                            title: const Text('Semua Kategori Winbox (100+ Menu)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                            subtitle: const Text('Jelajahi seluruh menu lengkap RouterOS', style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93))),
+                            children: winboxCategories.asMap().entries.map((cEntry) {
+                              final catIdx = cEntry.key;
+                              final cat = cEntry.value;
+
+                              return ExpansionTile(
+                                tilePadding: const EdgeInsets.only(left: 8),
+                                leading: Icon(cat.icon, size: 16, color: const Color(0xFF6C6C70)),
+                                title: Text(cat.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                trailing: Text('${cat.subMenus.length}', style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93))),
+                                children: cat.subMenus.asMap().entries.map((sEntry) {
+                                  final subIdx = sEntry.key;
+                                  final sub = sEntry.value;
+                                  final isCurrent = sub.path == widget.activePath;
+
+                                  return ListTile(
+                                    dense: true,
+                                    contentPadding: const EdgeInsets.only(left: 36, right: 12),
+                                    title: Text(
+                                      sub.title,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                        color: isCurrent ? const Color(0xFF007AFF) : const Color(0xFF1C1C1E),
+                                      ),
+                                    ),
+                                    subtitle: Text(sub.path, style: const TextStyle(fontSize: 10, color: Color(0xFF8E8E93), fontFamily: 'monospace')),
+                                    trailing: isCurrent ? const Icon(Icons.check_rounded, color: Color(0xFF007AFF), size: 16) : null,
+                                    onTap: () => widget.onSelect(catIdx, subIdx),
+                                  );
+                                }).toList(),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ==================== FILE: lib/widgets/winbox_dialogs.dart ====================
 import 'package:flutter/material.dart';
 import '../models/router_models.dart';
 import '../services/mikrotik_service.dart';
@@ -4252,7 +5041,7 @@ class WinboxDialogs {
 }
 
 
-#widgets_winbox_item_inspector
+// ==================== FILE: lib/widgets/winbox_item_inspector.dart ====================
 import 'package:flutter/material.dart';
 import '../services/mikrotik_service.dart';
 import 'winbox_dialogs.dart';
@@ -4564,1156 +5353,7 @@ class WinboxItemInspector {
 }
 
 
-#widgets_winbox_panel_view
-import 'dart:async';
-import 'package:flutter/material.dart';
-import '../models/router_models.dart';
-import '../models/winbox_models.dart';
-import '../services/mikrotik_service.dart';
-import 'winbox_dialogs.dart';
-import 'winbox_item_inspector.dart';
-import 'winbox_tools_view.dart';
-
-class WinboxPanelView extends StatefulWidget {
-  final MikroTikService service;
-  final Map<String, dynamic> data;
-  final Function(String, {bool isError}) showSnack;
-
-  const WinboxPanelView({
-    super.key,
-    required this.service,
-    required this.data,
-    required this.showSnack,
-  });
-
-  @override
-  State<WinboxPanelView> createState() => _WinboxPanelViewState();
-}
-
-class _WinboxPanelViewState extends State<WinboxPanelView> {
-  int _activeCategory = 6; // Default: IP
-  int _activeSubMenu = 0;   // Default: Addresses
-  String _searchQuery = '';
-  bool _isSearchOpen = false;
-
-  List<Map<String, String>> _currentMenuItems = [];
-  bool _isMenuLoading = false;
-  final _searchController = TextEditingController();
-
-  bool _safeModeActive = false;
-  bool _isAutoSyncLive = true;
-  Timer? _liveAutoSyncTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadActiveWinboxSubMenu();
-    _startLiveAutoSync();
-  }
-
-  @override
-  void dispose() {
-    _liveAutoSyncTimer?.cancel();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _startLiveAutoSync() {
-    _liveAutoSyncTimer?.cancel();
-    _liveAutoSyncTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) {
-      if (!mounted || !_isAutoSyncLive || _isMenuLoading || _isSearchOpen || _isSpecialView) return;
-      _loadActiveWinboxSubMenu(silent: true);
-    });
-  }
-
-  WinboxCategory get _activeCat => winboxCategories[_activeCategory];
-  WinboxSubMenu get _activeSub => _activeCat.subMenus[_activeSubMenu];
-
-  bool get _isSpecialView {
-    final p = _activeSub.path;
-    return p == 'PING_TOOL' ||
-        p == 'TRACEROUTE_TOOL' ||
-        p == 'PROFILE_TOOL' ||
-        p == 'CLI_TOOL' ||
-        p == 'SYSTEM_REBOOT' ||
-        p == 'SYSTEM_SHUTDOWN';
-  }
-
-  bool get _isAddable {
-    final p = _activeSub.path;
-    if (_isSpecialView) return false;
-    return p != '/log' &&
-        p != '/system/resource' &&
-        p != '/system/routerboard' &&
-        p != '/system/health' &&
-        p != '/user/active';
-  }
-
-  Future<void> _loadActiveWinboxSubMenu({bool silent = false}) async {
-    final sub = _activeSub;
-    if (_isSpecialView) {
-      if (!silent && mounted) setState(() => _isMenuLoading = false);
-      return;
-    }
-
-    if (!silent && mounted) {
-      setState(() => _isMenuLoading = true);
-    }
-
-    try {
-      final printPath = sub.path.endsWith('/print') ? sub.path : '${sub.path}/print';
-      final res = await widget.service.fetchMenu(printPath);
-      if (mounted) {
-        setState(() => _currentMenuItems = res);
-      }
-    } catch (_) {
-      if (!silent && mounted) setState(() => _currentMenuItems = []);
-    } finally {
-      if (!silent && mounted) setState(() => _isMenuLoading = false);
-    }
-  }
-
-  List<Map<String, String>> get _filteredItems {
-    if (_searchQuery.isEmpty) return _currentMenuItems;
-    final q = _searchQuery.toLowerCase();
-    return _currentMenuItems.where((item) {
-      return item.values.any((v) => v.toLowerCase().contains(q));
-    }).toList();
-  }
-
-  void _onAdd() {
-    final sub = _activeSub;
-    final ifaces = (widget.data['interfaces'] as List<Map<String, String>>?) ?? [];
-
-    if (sub.path == '/ip/address') {
-      WinboxDialogs.showAddIpDialog(
-        context: context,
-        service: widget.service,
-        interfaces: ifaces,
-        onSuccess: _loadActiveWinboxSubMenu,
-        showSnack: widget.showSnack,
-      );
-    } else if (sub.path == '/ip/route') {
-      WinboxDialogs.showAddRouteDialog(
-        context: context,
-        service: widget.service,
-        onSuccess: _loadActiveWinboxSubMenu,
-        showSnack: widget.showSnack,
-      );
-    } else if (sub.path == '/queue/simple') {
-      WinboxDialogs.showAddQueueDialog(
-        context: context,
-        service: widget.service,
-        onSuccess: _loadActiveWinboxSubMenu,
-        showSnack: widget.showSnack,
-      );
-    } else if (sub.path == '/ppp/secret') {
-      WinboxDialogs.showAddPppSecretDialog(
-        context: context,
-        service: widget.service,
-        onSuccess: _loadActiveWinboxSubMenu,
-        showSnack: widget.showSnack,
-      );
-    } else {
-      final role = widget.data['role'] as UserRoleInfo?;
-      WinboxDialogs.showGenericAddDialog(
-        context: context,
-        service: widget.service,
-        basePath: sub.path,
-        canManageUsers: role?.canManageUsers ?? true,
-        onSuccess: _loadActiveWinboxSubMenu,
-        showSnack: widget.showSnack,
-      );
-    }
-  }
-
-  Future<void> _onToggleItem(Map<String, String> item, bool enable) async {
-    final id = item['.id'];
-    if (id == null) return;
-    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item';
-    final actionText = enable ? 'mengaktifkan (enable)' : 'menonaktifkan (disable)';
-
-    final confirm = await WinboxDialogs.showConfirmActionDialog(
-      context: context,
-      title: 'Konfirmasi',
-      message: 'Apakah Anda yakin ingin $actionText "$name" (${_activeSub.path})?',
-      confirmLabel: enable ? 'Yakin (Enable)' : 'Yakin (Disable)',
-      confirmColor: enable ? const Color(0xFF34C759) : const Color(0xFFFF9500),
-    );
-    if (!confirm) return;
-
-    try {
-      final cmd = enable ? '${_activeSub.path}/enable' : '${_activeSub.path}/disable';
-      await widget.service.executePath(cmd, params: {'.id': id});
-      widget.showSnack(enable ? 'Item "$name" diaktifkan (Enabled).' : 'Item "$name" dinonaktifkan (Disabled).');
-      await _loadActiveWinboxSubMenu();
-    } catch (e) {
-      widget.showSnack('Gagal: $e', isError: true);
-    }
-  }
-
-  void _onCommentItem(Map<String, String> item) {
-    final id = item['.id'];
-    if (id == null) return;
-    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item';
-    final commentCtrl = TextEditingController(text: item['comment'] ?? '');
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Winbox Comment ($name)'),
-        content: TextField(
-          controller: commentCtrl,
-          autofocus: true,
-          style: const TextStyle(fontSize: 13.5, color: Color(0xFF1C1C1E)),
-          decoration: const InputDecoration(hintText: 'Tulis komentar untuk item ini...'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007AFF),
-              foregroundColor: Colors.white,
-              elevation: 0,
-            ),
-            onPressed: () async {
-              final newComment = commentCtrl.text.trim();
-              final oldComment = (item['comment'] ?? '').trim();
-              if (newComment == oldComment) {
-                Navigator.pop(ctx);
-                return;
-              }
-
-              final confirm = await WinboxDialogs.showConfirmActionDialog(
-                context: context,
-                title: 'Konfirmasi Ubah Komentar',
-                message: 'Apakah Anda sudah yakin ingin menerapkan komentar ini pada "$name"?\n\n• Komentar: "${newComment.isEmpty ? "(dikosongkan)" : newComment}"',
-                confirmLabel: 'Yakin & Simpan',
-              );
-              if (!confirm) return;
-
-              Navigator.pop(ctx);
-              try {
-                await widget.service.setComment(_activeSub.path, id, newComment);
-                widget.showSnack('Komentar untuk "$name" berhasil disimpan.');
-                await _loadActiveWinboxSubMenu();
-              } catch (e) {
-                widget.showSnack('Gagal: $e', isError: true);
-              }
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _onRemoveItem(Map<String, String> item) async {
-    final id = item['.id'];
-    if (id == null) return;
-    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item';
-
-    final confirm = await WinboxDialogs.showConfirmActionDialog(
-      context: context,
-      title: 'Hapus Item (Winbox Remove)?',
-      message: 'Apakah Anda yakin ingin menghapus "$name" (${_activeSub.path}) secara permanen dari router?',
-      confirmLabel: 'Hapus Permanen',
-      isDestructive: true,
-    );
-
-    if (confirm) {
-      try {
-        await widget.service.executePath('${_activeSub.path}/remove', params: {'.id': id});
-        widget.showSnack('Item "$name" berhasil dihapus.');
-        await _loadActiveWinboxSubMenu();
-      } catch (e) {
-        widget.showSnack('Gagal: $e', isError: true);
-      }
-    }
-  }
-
-  void _showItemActionSheet(Map<String, String> item) {
-    final name = item[_activeSub.primaryField] ?? item['name'] ?? item['address'] ?? 'Detail Item';
-    final disabled = item['disabled'] == 'true';
-    final hasId = item['.id'] != null;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Handle Bar
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(color: const Color(0xFFD1D1D6), borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Title Header
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          _activeSub.path,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: disabled ? const Color(0xFFFF3B30).withValues(alpha: 0.1) : const Color(0xFF34C759).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      disabled ? 'NONAKTIF' : 'AKTIF',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: disabled ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Divider(height: 1, color: Color(0xFFE5E5EA)),
-              const SizedBox(height: 8),
-
-              // Action 1: Edit & Inspector
-              ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(color: const Color(0xFF007AFF).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.edit_note_rounded, color: Color(0xFF007AFF), size: 20),
-                ),
-                title: const Text('Detail & Edit Properti', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                subtitle: const Text('Lihat dan ubah seluruh konfigurasi RouterOS', style: TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  WinboxItemInspector.show(
-                    context: context,
-                    item: item,
-                    basePath: _activeSub.path,
-                    service: widget.service,
-                    onRefresh: _loadActiveWinboxSubMenu,
-                    showSnack: widget.showSnack,
-                  );
-                },
-              ),
-
-              // Action 2: Toggle Enable / Disable
-              if (hasId)
-                ListTile(
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: (disabled ? const Color(0xFF34C759) : const Color(0xFFFF9500)).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      disabled ? Icons.check_circle_outline_rounded : Icons.block_rounded,
-                      color: disabled ? const Color(0xFF34C759) : const Color(0xFFFF9500),
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(disabled ? 'Aktifkan Item (Enable)' : 'Nonaktifkan Item (Disable)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: Text(disabled ? 'Nyalakan kembali item ini di RouterOS' : 'Matikan sementara item ini tanpa menghapusnya', style: const TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _onToggleItem(item, disabled);
-                  },
-                ),
-
-              // Action 3: Comment
-              if (hasId)
-                ListTile(
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(color: const Color(0xFF5856D6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF5856D6), size: 18),
-                  ),
-                  title: const Text('Beri / Ubah Komentar', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Tambahkan catatan identifikasi (;;; comment)', style: TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _onCommentItem(item);
-                  },
-                ),
-
-              // Action 4: Delete
-              if (hasId)
-                ListTile(
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(color: const Color(0xFFFF3B30).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30), size: 20),
-                  ),
-                  title: const Text('Hapus Item', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFFFF3B30))),
-                  subtitle: const Text('Hapus permanen item ini dari konfigurasi router', style: TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93))),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _onRemoveItem(item);
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openMenuPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _ModernMenuPickerSheet(
-        activePath: _activeSub.path,
-        onSelect: (catIdx, subIdx) {
-          Navigator.pop(ctx);
-          setState(() {
-            _activeCategory = catIdx;
-            _activeSubMenu = subIdx;
-            _searchQuery = '';
-            _isSearchOpen = false;
-            _searchController.clear();
-          });
-          _loadActiveWinboxSubMenu();
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(52),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: _isSearchOpen
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            autofocus: true,
-                            style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E)),
-                            decoration: InputDecoration(
-                              hintText: 'Cari di ${_activeSub.title}...',
-                              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
-                              prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF8E8E93)),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                            ),
-                            onChanged: (v) => setState(() => _searchQuery = v),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF8E8E93)),
-                          onPressed: () {
-                            setState(() {
-                              _isSearchOpen = false;
-                              _searchQuery = '';
-                              _searchController.clear();
-                            });
-                          },
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        // TAPPABLE TITLE TO SWITCH MENU
-                        InkWell(
-                          onTap: _openMenuPicker,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_activeCat.icon, size: 18, color: const Color(0xFF007AFF)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _activeSub.title,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1C1C1E),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF8E8E93)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-
-                        // LIVE 1:1 REALTIME PILL
-                        InkWell(
-                          onTap: () {
-                            setState(() => _isAutoSyncLive = !_isAutoSyncLive);
-                            widget.showSnack(_isAutoSyncLive ? 'Live Sync 1:1 Aktif (Update tiap 2 detik).' : 'Live Sync dijeda.');
-                          },
-                          borderRadius: BorderRadius.circular(6),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: _isAutoSyncLive ? const Color(0xFF34C759).withValues(alpha: 0.12) : const Color(0xFF8E8E93).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: _isAutoSyncLive ? const Color(0xFF34C759).withValues(alpha: 0.3) : const Color(0xFF8E8E93).withValues(alpha: 0.3),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 5,
-                                  height: 5,
-                                  decoration: BoxDecoration(
-                                    color: _isAutoSyncLive ? const Color(0xFF34C759) : const Color(0xFF8E8E93),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _isAutoSyncLive ? '1:1 LIVE' : 'PAUSED',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: _isAutoSyncLive ? const Color(0xFF34C759) : const Color(0xFF8E8E93),
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // SEARCH ACTION
-                        IconButton(
-                          tooltip: 'Cari',
-                          icon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF1C1C1E)),
-                          onPressed: () => setState(() => _isSearchOpen = true),
-                        ),
-
-                        // ADD ACTION
-                        if (_isAddable)
-                          IconButton(
-                            tooltip: 'Tambah Item',
-                            icon: const Icon(Icons.add_rounded, size: 22, color: Color(0xFF007AFF)),
-                            onPressed: _onAdd,
-                          ),
-
-                        // MORE OPTIONS
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_horiz_rounded, size: 20, color: Color(0xFF1C1C1E)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          onSelected: (val) async {
-                            if (val == 'safe') {
-                              setState(() => _safeModeActive = !_safeModeActive);
-                              widget.showSnack(_safeModeActive ? 'Safe Mode Aktif.' : 'Safe Mode Dinonaktifkan.');
-                            } else if (val == 'refresh') {
-                              await _loadActiveWinboxSubMenu();
-                            } else if (val == 'terminal') {
-                              final ref = findWinboxMenuByPath('CLI_TOOL');
-                              if (ref != null) {
-                                setState(() {
-                                  _activeCategory = ref.categoryIndex;
-                                  _activeSubMenu = ref.subMenuIndex;
-                                });
-                              }
-                            } else if (val == 'reboot') {
-                              WinboxDialogs.showConfirmRebootDialog(
-                                context: context,
-                                service: widget.service,
-                                showSnack: widget.showSnack,
-                              );
-                            }
-                          },
-                          itemBuilder: (ctx) => [
-                            PopupMenuItem(
-                              value: 'safe',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.shield_rounded, size: 18, color: _safeModeActive ? const Color(0xFF34C759) : const Color(0xFF8E8E93)),
-                                  const SizedBox(width: 10),
-                                  Text(_safeModeActive ? 'Safe Mode (Aktif)' : 'Safe Mode'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'refresh',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF007AFF)),
-                                  SizedBox(width: 10),
-                                  Text('Segarkan Data'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'terminal',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.terminal_rounded, size: 18, color: Color(0xFF1C1C1E)),
-                                  SizedBox(width: 10),
-                                  Text('Terminal CLI'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'reboot',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.restart_alt_rounded, size: 18, color: Color(0xFFFF9500)),
-                                  SizedBox(width: 10),
-                                  Text('Reboot Router'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-        ),
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    final sub = _activeSub;
-
-    if (sub.path == 'PING_TOOL') {
-      return PingToolWidget(service: widget.service);
-    } else if (sub.path == 'TRACEROUTE_TOOL') {
-      return TracerouteToolWidget(service: widget.service);
-    } else if (sub.path == 'PROFILE_TOOL') {
-      return CpuProfileToolWidget(service: widget.service);
-    } else if (sub.path == 'CLI_TOOL') {
-      return CliTerminalWidget(service: widget.service);
-    } else if (sub.path == 'SYSTEM_REBOOT' || sub.path == 'SYSTEM_SHUTDOWN') {
-      return _buildSystemActionView(sub);
-    }
-
-    if (_isMenuLoading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-    }
-
-    final items = _filteredItems;
-
-    return RefreshIndicator(
-      onRefresh: _loadActiveWinboxSubMenu,
-      child: items.isEmpty
-          ? Center(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.inbox_rounded, size: 40, color: Color(0xFFC7C7CC)),
-                      const SizedBox(height: 10),
-                      Text(
-                        _currentMenuItems.isEmpty ? 'Belum ada data di ${sub.title}.' : 'Tidak ada hasil untuk "$_searchQuery".',
-                        style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (_isAddable && _currentMenuItems.isEmpty) ...[
-                        const SizedBox(height: 14),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF007AFF),
-                            side: const BorderSide(color: Color(0xFF007AFF), width: 0.8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.add_rounded, size: 16),
-                          label: const Text('Tambah Data Baru', style: TextStyle(fontSize: 12.5)),
-                          onPressed: _onAdd,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              itemCount: items.length,
-              itemBuilder: (context, idx) {
-                final item = items[idx];
-                final primary = item[sub.primaryField] ?? item['name'] ?? item['address'] ?? 'Item $idx';
-                final secondary = sub.secondaryField != null ? item[sub.secondaryField!] : null;
-                final disabled = item['disabled'] == 'true';
-                final running = item['running'] == 'true';
-                final comment = item['comment'];
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => _showItemActionSheet(item),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (comment != null && comment.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                ';;; $comment',
-                                style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Color(0xFF007AFF)),
-                              ),
-                            ),
-                          Row(
-                            children: [
-                              // Status Dot
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: disabled
-                                      ? const Color(0xFFFF3B30)
-                                      : (running ? const Color(0xFF34C759) : const Color(0xFF8E8E93)),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-
-                              // Primary Field
-                              Expanded(
-                                child: Text(
-                                  primary,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    color: disabled ? const Color(0xFF8E8E93) : const Color(0xFF1C1C1E),
-                                    decoration: disabled ? TextDecoration.lineThrough : null,
-                                  ),
-                                ),
-                              ),
-
-                              // Secondary Field
-                              if (secondary != null) ...[
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF2F2F7),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      secondary,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF6C6C70)),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(width: 6),
-                              const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFFC7C7CC)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-    );
-  }
-
-  Widget _buildSystemActionView(WinboxSubMenu sub) {
-    final isReboot = sub.path == 'SYSTEM_REBOOT';
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 380),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isReboot ? Icons.restart_alt_rounded : Icons.power_settings_new_rounded,
-                color: isReboot ? const Color(0xFFFF9500) : const Color(0xFFFF3B30),
-                size: 36,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                isReboot ? 'Reboot Router MikroTik' : 'Matikan Router',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                isReboot
-                    ? 'Router akan memulai ulang seluruh sistem. Sesi aktif akan terputus sesaat.'
-                    : 'Router akan dimatikan secara aman. Daya harus dinyalakan kembali secara manual.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF8E8E93), height: 1.4),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 42,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isReboot ? const Color(0xFFFF9500) : const Color(0xFFFF3B30),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () {
-                    if (isReboot) {
-                      WinboxDialogs.showConfirmRebootDialog(
-                        context: context,
-                        service: widget.service,
-                        showSnack: widget.showSnack,
-                      );
-                    } else {
-                      WinboxDialogs.showConfirmShutdownDialog(
-                        context: context,
-                        service: widget.service,
-                        showSnack: widget.showSnack,
-                      );
-                    }
-                  },
-                  child: Text(isReboot ? 'Reboot Sekarang' : 'Shutdown Sekarang', style: const TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ===========================================================================
-// ULTRA-MINIMALIST MENU PICKER SHEET
-// ===========================================================================
-
-class _ModernMenuPickerSheet extends StatefulWidget {
-  final String activePath;
-  final Function(int categoryIndex, int subMenuIndex) onSelect;
-
-  const _ModernMenuPickerSheet({
-    required this.activePath,
-    required this.onSelect,
-  });
-
-  @override
-  State<_ModernMenuPickerSheet> createState() => _ModernMenuPickerSheetState();
-}
-
-class _ModernMenuPickerSheetState extends State<_ModernMenuPickerSheet> {
-  final _searchController = TextEditingController();
-  String _searchQuery = '';
-  bool _showAllCategories = false;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final searchResults = _searchQuery.isNotEmpty ? searchWinboxMenus(_searchQuery) : <WinboxMenuItemReference>[];
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      maxChildSize: 0.92,
-      minChildSize: 0.45,
-      builder: (ctx, scrollCtrl) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // Handle Bar
-            const SizedBox(height: 10),
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(color: const Color(0xFFD1D1D6), borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Header Row
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                children: [
-                  const Text('Pilih Menu Winbox', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E))),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF8E8E93)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Search Box
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF2F2F7),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  style: const TextStyle(fontSize: 13.5, color: Color(0xFF1C1C1E)),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF8E8E93)),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 16),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    hintText: 'Cari menu (misal: nat, lease, queue, vlan)...',
-                    hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                  ),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Divider(height: 1, thickness: 0.5, color: Color(0xFFE5E5EA)),
-
-            // Content Area
-            Expanded(
-              child: _searchQuery.isNotEmpty
-                  ? (searchResults.isEmpty
-                      ? const Center(child: Text('Tidak ada menu yang cocok.', style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13)))
-                      : ListView.separated(
-                          controller: scrollCtrl,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: searchResults.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE5E5EA)),
-                          itemBuilder: (ctx, idx) {
-                            final ref = searchResults[idx];
-                            final isCurrent = ref.subMenu.path == widget.activePath;
-                            return ListTile(
-                              dense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              leading: Icon(ref.category.icon, size: 18, color: const Color(0xFF007AFF)),
-                              title: Text(
-                                ref.subMenu.title,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCurrent ? const Color(0xFF007AFF) : const Color(0xFF1C1C1E),
-                                ),
-                              ),
-                              subtitle: Text(
-                                '${ref.category.title} • ${ref.subMenu.path}',
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
-                              ),
-                              trailing: isCurrent ? const Icon(Icons.check_rounded, color: Color(0xFF007AFF), size: 18) : null,
-                              onTap: () => widget.onSelect(ref.categoryIndex, ref.subMenuIndex),
-                            );
-                          },
-                        ))
-                  : ListView(
-                      controller: scrollCtrl,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      children: [
-                        // QUICK GROUPS
-                        ...quickMenuGroups.map((group) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(group.icon, size: 15, color: group.color),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      group.title.toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: group.color,
-                                        letterSpacing: 0.4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: group.paths.map((p) {
-                                    final ref = findWinboxMenuByPath(p);
-                                    if (ref == null) return const SizedBox.shrink();
-                                    final isCurrent = ref.subMenu.path == widget.activePath;
-
-                                    return InkWell(
-                                      onTap: () => widget.onSelect(ref.categoryIndex, ref.subMenuIndex),
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: isCurrent ? const Color(0xFF007AFF) : const Color(0xFFF2F2F7),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: isCurrent ? Colors.transparent : const Color(0xFFE5E5EA), width: 0.5),
-                                        ),
-                                        child: Text(
-                                          ref.subMenu.title,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                                            color: isCurrent ? Colors.white : const Color(0xFF1C1C1E),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
-
-                        const SizedBox(height: 10),
-                        const Divider(height: 1, color: Color(0xFFE5E5EA)),
-                        const SizedBox(height: 10),
-
-                        // EXPANDABLE FULL 100+ DIRECTORY
-                        Theme(
-                          data: Theme.of(ctx).copyWith(dividerColor: Colors.transparent),
-                          child: ExpansionTile(
-                            tilePadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.folder_special_rounded, color: Color(0xFF007AFF), size: 20),
-                            title: const Text('Semua Kategori Winbox (100+ Menu)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                            subtitle: const Text('Jelajahi seluruh menu lengkap RouterOS', style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93))),
-                            children: winboxCategories.asMap().entries.map((cEntry) {
-                              final catIdx = cEntry.key;
-                              final cat = cEntry.value;
-
-                              return ExpansionTile(
-                                tilePadding: const EdgeInsets.only(left: 8),
-                                leading: Icon(cat.icon, size: 16, color: const Color(0xFF6C6C70)),
-                                title: Text(cat.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                trailing: Text('${cat.subMenus.length}', style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93))),
-                                children: cat.subMenus.asMap().entries.map((sEntry) {
-                                  final subIdx = sEntry.key;
-                                  final sub = sEntry.value;
-                                  final isCurrent = sub.path == widget.activePath;
-
-                                  return ListTile(
-                                    dense: true,
-                                    contentPadding: const EdgeInsets.only(left: 36, right: 12),
-                                    title: Text(
-                                      sub.title,
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                        color: isCurrent ? const Color(0xFF007AFF) : const Color(0xFF1C1C1E),
-                                      ),
-                                    ),
-                                    subtitle: Text(sub.path, style: const TextStyle(fontSize: 10, color: Color(0xFF8E8E93), fontFamily: 'monospace')),
-                                    trailing: isCurrent ? const Icon(Icons.check_rounded, color: Color(0xFF007AFF), size: 16) : null,
-                                    onTap: () => widget.onSelect(catIdx, subIdx),
-                                  );
-                                }).toList(),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-#widgets_winbox_tools_view
+// ==================== FILE: lib/widgets/winbox_tools_view.dart ====================
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/mikrotik_service.dart';
@@ -6023,7 +5663,7 @@ class _CpuProfileToolWidgetState extends State<CpuProfileToolWidget> {
                         ),
                         child: ListView.separated(
                           itemCount: _processes.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE5E5EA)),
+                          separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE5E5EA)),
                           itemBuilder: (context, idx) {
                             final p = _processes[idx];
                             final name = p['name'] ?? 'Process $idx';
@@ -6374,3 +6014,4 @@ class _CliTerminalWidgetState extends State<CliTerminalWidget> {
     );
   }
 }
+

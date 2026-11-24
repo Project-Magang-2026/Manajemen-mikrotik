@@ -29,25 +29,46 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
 
   bool _isOnline = true;
   Timer? _liveHeartbeatTimer;
+  StreamSubscription<bool>? _connectionSub;
 
   @override
   void initState() {
     super.initState();
     _service = MikroTikService(widget.profile);
     _data = widget.initialData;
+    _subscribeConnectionStream();
     _startLiveHeartbeat();
   }
 
   @override
   void dispose() {
+    _connectionSub?.cancel();
     _liveHeartbeatTimer?.cancel();
     _service.dispose();
     super.dispose();
   }
 
+  void _subscribeConnectionStream() {
+    _connectionSub?.cancel();
+    _connectionSub = _service.connectionStateStream.listen((isConnected) {
+      if (!mounted) return;
+      if (_isOnline != isConnected) {
+        setState(() {
+          _isOnline = isConnected;
+          if (isConnected) {
+            _showSnack('Koneksi router kembali aktif (Online).');
+          } else {
+            _showSnack('Koneksi ke router terputus (Offline)!', isError: true);
+          }
+        });
+      }
+    });
+  }
+
   void _startLiveHeartbeat() {
     _liveHeartbeatTimer?.cancel();
-    _liveHeartbeatTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+    // Heartbeat ringan setiap 1200ms untuk deteksi instan jika terjadi silent drop / kabel putus
+    _liveHeartbeatTimer = Timer.periodic(const Duration(milliseconds: 1200), (_) async {
       if (!mounted || _isLoading) return;
       final isAlive = await _service.checkConnection();
       if (!mounted) return;
@@ -57,6 +78,8 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
           _isOnline = isAlive;
           if (isAlive) {
             _showSnack('Koneksi router kembali aktif (Online).');
+          } else {
+            _showSnack('Koneksi ke router terputus (Offline)!', isError: true);
           }
         });
       }
@@ -130,23 +153,25 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
+        titleSpacing: 16,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
                   child: Text(
                     _data['identity']?.toString() ?? widget.profile.label,
-                    style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 // REAL-TIME 1:1 LIVE STATUS PILL
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                   decoration: BoxDecoration(
                     color: _isOnline ? const Color(0xFF34C759).withValues(alpha: 0.12) : const Color(0xFFFF3B30).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(5),
@@ -185,16 +210,16 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
             if (_role.isUser)
               Container(
                 margin: const EdgeInsets.only(top: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                 decoration: BoxDecoration(
                   color: const Color(0xFF007AFF).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(5),
                   border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.25), width: 0.5),
                 ),
                 child: const Text(
                   'MODE USER',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF007AFF),
                     letterSpacing: 0.3,
@@ -204,23 +229,28 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
             else
               Text(
                 '${widget.profile.host} • ${_role.roleBadge}',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93)),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
           ],
         ),
         actions: [
           IconButton(
+            visualDensity: VisualDensity.compact,
             tooltip: 'Segarkan',
             icon: _isLoading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.refresh_rounded),
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _isLoading ? null : _refresh,
           ),
           IconButton(
+            visualDensity: VisualDensity.compact,
             tooltip: 'Ganti Router',
-            icon: const Icon(Icons.swap_horiz_rounded),
+            icon: const Icon(Icons.swap_horiz_rounded, size: 20),
             onPressed: _switchRouter,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(

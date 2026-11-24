@@ -498,31 +498,37 @@ class _WinboxPanelViewState extends State<WinboxPanelView> {
                   : Row(
                       children: [
                         // TAPPABLE TITLE TO SWITCH MENU
-                        InkWell(
-                          onTap: _openMenuPicker,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_activeCat.icon, size: 18, color: const Color(0xFF007AFF)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _activeSub.title,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1C1C1E),
+                        Expanded(
+                          child: InkWell(
+                            onTap: _openMenuPicker,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_activeCat.icon, size: 18, color: const Color(0xFF007AFF)),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      _activeSub.title,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1C1C1E),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF8E8E93)),
-                              ],
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF8E8E93)),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 6),
 
                         // LIVE 1:1 REALTIME PILL
                         InkWell(
@@ -532,8 +538,8 @@ class _WinboxPanelViewState extends State<WinboxPanelView> {
                           },
                           borderRadius: BorderRadius.circular(6),
                           child: Container(
-                            margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            margin: const EdgeInsets.only(right: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
                               color: _isAutoSyncLive ? const Color(0xFF34C759).withValues(alpha: 0.12) : const Color(0xFF8E8E93).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
@@ -557,7 +563,7 @@ class _WinboxPanelViewState extends State<WinboxPanelView> {
                                 Text(
                                   _isAutoSyncLive ? '1:1 LIVE' : 'PAUSED',
                                   style: TextStyle(
-                                    fontSize: 9.5,
+                                    fontSize: 9,
                                     fontWeight: FontWeight.bold,
                                     color: _isAutoSyncLive ? const Color(0xFF34C759) : const Color(0xFF8E8E93),
                                     letterSpacing: 0.3,
@@ -570,21 +576,29 @@ class _WinboxPanelViewState extends State<WinboxPanelView> {
 
                         // SEARCH ACTION
                         IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                           tooltip: 'Cari',
-                          icon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF1C1C1E)),
+                          icon: const Icon(Icons.search_rounded, size: 19, color: Color(0xFF1C1C1E)),
                           onPressed: () => setState(() => _isSearchOpen = true),
                         ),
 
                         // ADD ACTION
                         if (_isAddable)
                           IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             tooltip: 'Tambah Item',
-                            icon: const Icon(Icons.add_rounded, size: 22, color: Color(0xFF007AFF)),
+                            icon: const Icon(Icons.add_rounded, size: 21, color: Color(0xFF007AFF)),
                             onPressed: _onAdd,
                           ),
 
                         // MORE OPTIONS
                         PopupMenuButton<String>(
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                           icon: const Icon(Icons.more_horiz_rounded, size: 20, color: Color(0xFF1C1C1E)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           onSelected: (val) async {

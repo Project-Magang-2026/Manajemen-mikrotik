@@ -277,7 +277,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                 ),
                 child: const Icon(Icons.router_rounded, color: Color(0xFF007AFF), size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +295,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                         if (p.rolePreference != LoginRolePreference.auto) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
                               color: p.rolePreference == LoginRolePreference.technician
                                   ? const Color(0xFF007AFF).withValues(alpha: 0.1)
@@ -305,7 +305,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                             child: Text(
                               p.rolePreference.label,
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 9.5,
                                 fontWeight: FontWeight.w600,
                                 color: p.rolePreference == LoginRolePreference.technician
                                     ? const Color(0xFF007AFF)
@@ -319,12 +319,17 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '${p.username}@${p.host}:${p.port}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 tooltip: 'Hapus',
                 icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFF8E8E93), size: 18),
                 onPressed: _isConnecting ? null : () => _deleteProfile(p),
@@ -335,11 +340,13 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                   backgroundColor: const Color(0xFF007AFF),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: _isConnecting ? null : () => _connectAndSave(p),
-                child: const Text('Hubungkan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                child: const Text('Hubungkan', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
               ),
             ],
           ),

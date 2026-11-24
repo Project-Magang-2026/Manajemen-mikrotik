@@ -9,6 +9,20 @@ class MikroTikService {
   Future<void> _commandQueue = Future.value();
   bool _isDisposed = false;
 
+  final _connectionStateController = StreamController<bool>.broadcast();
+  Stream<bool> get connectionStateStream => _connectionStateController.stream;
+  bool _lastKnownConnected = true;
+  bool get isConnected => _lastKnownConnected;
+
+  void _notifyConnectionState(bool connected) {
+    if (_lastKnownConnected != connected) {
+      _lastKnownConnected = connected;
+      if (!_connectionStateController.isClosed) {
+        _connectionStateController.add(connected);
+      }
+    }
+  }
+
   MikroTikService(this.profile);
 
   /// Menutup koneksi persistent socket saat keluar atau ganti router
@@ -16,6 +30,9 @@ class MikroTikService {
     _isDisposed = true;
     await _persistentBinaryClient?.close();
     _persistentBinaryClient = null;
+    if (!_connectionStateController.isClosed) {
+      await _connectionStateController.close();
+    }
   }
 
   /// Mengecek hak akses user dari /user dan /user/group di MikroTik secara serentak
@@ -100,8 +117,11 @@ class MikroTikService {
   Future<bool> checkConnection() async {
     try {
       final res = await runCommand('/system/identity/print');
-      return res.isNotEmpty;
+      final ok = res.isNotEmpty;
+      _notifyConnectionState(ok);
+      return ok;
     } catch (_) {
+      _notifyConnectionState(false);
       return false;
     }
   }
@@ -802,9 +822,14 @@ class MikroTikService {
   }) async {
     if (profile.protocol == ApiProtocol.routerOsApi8728) {
       if (_persistentBinaryClient == null || _persistentBinaryClient!.isClosed) {
-        final client = _RouterOsBinaryClient(profile.host, profile.port);
+        final client = _RouterOsBinaryClient(
+          profile.host,
+          profile.port,
+          onConnectionChanged: _notifyConnectionState,
+        );
         await client.connectAndLogin(profile.username, profile.password);
         _persistentBinaryClient = client;
+        _notifyConnectionState(true);
       }
 
       try {
@@ -812,9 +837,12 @@ class MikroTikService {
         if (params != null) {
           params.forEach((k, v) => words.add('=$k=$v'));
         }
-        return await _persistentBinaryClient!.sendCommand(words);
+        final res = await _persistentBinaryClient!.sendCommand(words);
+        _notifyConnectionState(true);
+        return res;
       } catch (e) {
         // Socket terputus atau timeout, tutup client agar perintah berikutnya melakukan auto-reconnect
+        _notifyConnectionState(false);
         await _persistentBinaryClient?.close();
         _persistentBinaryClient = null;
         rethrow;
@@ -825,7 +853,7 @@ class MikroTikService {
       final url = '$scheme://${profile.host}:${profile.port}/rest$cleanPath';
 
       final httpClient = HttpClient()
-        ..connectionTimeout = const Duration(milliseconds: 2000)
+        ..connectionTimeout = const Duration(milliseconds: 1500)
         ..badCertificateCallback = (cert, host, port) => true;
 
       try {
@@ -846,11 +874,13 @@ class MikroTikService {
         final body = await response.transform(utf8.decoder).join();
 
         if (response.statusCode == 401) {
+          _notifyConnectionState(false);
           throw Exception('Username atau password salah (401).');
         }
         if (response.statusCode >= 400) {
           throw Exception('HTTP ${response.statusCode}: $body');
         }
+        _notifyConnectionState(true);
         if (body.isEmpty) return [];
 
         final decoded = jsonDecode(body);
@@ -866,6 +896,9 @@ class MikroTikService {
           ];
         }
         return [];
+      } catch (e) {
+        _notifyConnectionState(false);
+        rethrow;
       } finally {
         httpClient.close();
       }
@@ -877,6 +910,7 @@ class MikroTikService {
 class _RouterOsBinaryClient {
   final String host;
   final int port;
+  final void Function(bool isConnected)? onConnectionChanged;
   Socket? _socket;
   final List<int> _buffer = [];
   final List<String> _currentSentence = [];
@@ -885,19 +919,24 @@ class _RouterOsBinaryClient {
 
   bool get isClosed => _isClosed;
 
-  _RouterOsBinaryClient(this.host, this.port);
+  _RouterOsBinaryClient(this.host, this.port, {this.onConnectionChanged});
 
   Future<void> connectAndLogin(String username, String password) async {
     _isClosed = false;
-    _socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 2000));
+    _socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 1500));
+    _socket!.setOption(SocketOption.tcpNoDelay, true);
+    onConnectionChanged?.call(true);
+
     _socket!.listen(
       _onData,
       onError: (e) {
         _isClosed = true;
+        onConnectionChanged?.call(false);
         if (!_controller.isClosed) _controller.addError(e);
       },
       onDone: () {
         _isClosed = true;
+        onConnectionChanged?.call(false);
         if (!_controller.isClosed) _controller.close();
       },
       cancelOnError: false,
@@ -1006,9 +1045,11 @@ class _RouterOsBinaryClient {
     await _socket!.flush();
 
     return completer.future.timeout(
-      const Duration(milliseconds: 2500),
+      const Duration(milliseconds: 1800),
       onTimeout: () {
         sub.cancel();
+        _isClosed = true;
+        onConnectionChanged?.call(false);
         throw TimeoutException('Timeout menunggu respons router.');
       },
     );
@@ -1026,6 +1067,7 @@ class _RouterOsBinaryClient {
 
   Future<void> close() async {
     _isClosed = true;
+    onConnectionChanged?.call(false);
     try {
       await _socket?.close();
       _socket?.destroy();
