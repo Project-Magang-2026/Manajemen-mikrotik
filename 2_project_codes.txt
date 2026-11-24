@@ -1,0 +1,1920 @@
+#services_profile_storage_service
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/router_models.dart';
+
+class ProfileStorageService {
+  static const _profilesKey = 'saved_router_profiles_v1';
+  static const _activeProfileIdKey = 'active_router_profile_id_v1';
+
+  Future<List<RouterProfile>> getProfiles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_profilesKey);
+    if (raw == null || raw.isEmpty) return [];
+
+    final List<dynamic> decoded = jsonDecode(raw);
+    return decoded
+        .map((e) => RouterProfile.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<void> saveProfile(RouterProfile profile, {bool setAsActive = true}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final profiles = await getProfiles();
+
+    final existingIdx = profiles.indexWhere((p) => p.id == profile.id);
+    if (existingIdx >= 0) {
+      profiles[existingIdx] = profile;
+    } else {
+      profiles.add(profile);
+    }
+
+    await prefs.setString(
+      _profilesKey,
+      jsonEncode(profiles.map((p) => p.toJson()).toList()),
+    );
+
+    if (setAsActive) {
+      await prefs.setString(_activeProfileIdKey, profile.id);
+    }
+  }
+
+  Future<void> deleteProfile(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final profiles = await getProfiles();
+    profiles.removeWhere((p) => p.id == id);
+
+    await prefs.setString(
+      _profilesKey,
+      jsonEncode(profiles.map((p) => p.toJson()).toList()),
+    );
+
+    final activeId = prefs.getString(_activeProfileIdKey);
+    if (activeId == id) {
+      await prefs.remove(_activeProfileIdKey);
+    }
+  }
+
+  Future<void> setActiveProfileId(String? id) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (id == null) {
+      await prefs.remove(_activeProfileIdKey);
+    } else {
+      await prefs.setString(_activeProfileIdKey, id);
+    }
+  }
+
+  Future<RouterProfile?> getActiveProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeId = prefs.getString(_activeProfileIdKey);
+    if (activeId == null) return null;
+
+    final profiles = await getProfiles();
+    try {
+      return profiles.firstWhere((p) => p.id == activeId);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+#services_router_discovery_service
+import 'dart:async';
+import 'dart:io';
+
+class DiscoveredRouter {
+  final String ip;
+  final int port;
+  final String label;
+
+  DiscoveredRouter({
+    required this.ip,
+    required this.port,
+    required this.label,
+  });
+}
+
+class RouterDiscoveryService {
+  // Port umum MikroTik: 8728 (API Binary), 80 (HTTP REST), 443 (HTTPS REST), 8729 (API SSL)
+  static const List<int> _portsToProbe = [8728, 80, 443, 8729];
+
+  /// Pindai jaringan lokal Wi-Fi untuk menemukan router MikroTik aktif
+  Future<DiscoveredRouter?> discoverActiveRouter({
+    Duration probeTimeout = const Duration(milliseconds: 900),
+  }) async {
+    final candidateIps = await _getCandidateIps();
+
+    // Pindai kandidat gateway secara paralel
+    final futures = candidateIps.map((ip) => _probeHost(ip, probeTimeout)).toList();
+    final results = await Future.wait(futures);
+
+    // Prioritaskan port 8728 (Native Binary API) jika ada beberapa port terbuka
+    DiscoveredRouter? bestResult;
+    for (final r in results) {
+      if (r != null) {
+        if (r.port == 8728) return r;
+        bestResult ??= r;
+      }
+    }
+
+    return bestResult;
+  }
+
+  Future<List<String>> _getCandidateIps() async {
+    final candidates = <String>{};
+
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          final ip = addr.address;
+          if (ip == '127.0.0.1' || ip.startsWith('169.254.')) continue;
+
+          final parts = ip.split('.');
+          if (parts.length == 4) {
+            final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+            // Default gateway router pada umumnya (.1 atau .254)
+            candidates.add('$prefix.1');
+            candidates.add('$prefix.254');
+          }
+        }
+      }
+    } catch (_) {}
+
+    // IP Default bawaan pabrik MikroTik
+    candidates.add('192.168.88.1');
+    candidates.add('192.168.1.1');
+    candidates.add('10.0.0.1');
+
+    return candidates.toList();
+  }
+
+  Future<DiscoveredRouter?> _probeHost(String host, Duration timeout) async {
+    for (final port in _portsToProbe) {
+      try {
+        final socket = await Socket.connect(host, port, timeout: timeout);
+        await socket.close();
+        return DiscoveredRouter(
+          ip: host,
+          port: port,
+          label: 'Router ($host)',
+        );
+      } catch (_) {
+        // Port tidak merespons, coba port berikutnya
+      }
+    }
+    return null;
+  }
+}
+
+
+#screens_profile_list_screen
+import 'package:flutter/material.dart';
+import '../models/router_models.dart';
+import '../services/mikrotik_service.dart';
+import '../services/profile_storage_service.dart';
+import '../services/router_discovery_service.dart';
+import 'router_dashboard_screen.dart';
+
+class ProfileListScreen extends StatefulWidget {
+  const ProfileListScreen({super.key});
+
+  @override
+  State<ProfileListScreen> createState() => _ProfileListScreenState();
+}
+
+class _ProfileListScreenState extends State<ProfileListScreen> {
+  final _storage = ProfileStorageService();
+  final _discoveryService = RouterDiscoveryService();
+
+  final _labelController = TextEditingController();
+  final _ipController = TextEditingController();
+  final _portController = TextEditingController();
+  final _userController = TextEditingController();
+  final _passController = TextEditingController();
+
+  List<RouterProfile> _savedProfiles = [];
+  bool _isConnecting = false;
+  bool _isScanning = false;
+  bool _obscurePass = true;
+  LoginRolePreference _selectedRolePreference = LoginRolePreference.auto;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedProfiles();
+  }
+
+  Future<void> _loadSavedProfiles() async {
+    final list = await _storage.getProfiles();
+    if (mounted) {
+      setState(() => _savedProfiles = list);
+    }
+  }
+
+  Future<void> _scanNetwork() async {
+    setState(() => _isScanning = true);
+    try {
+      final found = await _discoveryService.discoverActiveRouter();
+      if (!mounted) return;
+      if (found != null) {
+        setState(() {
+          _ipController.text = found.ip;
+          _portController.text = found.port.toString();
+          if (_labelController.text.trim().isEmpty) {
+            _labelController.text = found.label;
+          }
+        });
+        _showSnack('Router terdeteksi: ${found.ip}:${found.port}');
+      } else {
+        _showSnack('Tidak ada router/port API aktif yang terdeteksi di subnet ini.', isError: true);
+      }
+    } catch (e) {
+      _showSnack('Gagal memindai: ${e.toString().replaceFirst("Exception: ", "")}', isError: true);
+    } finally {
+      if (mounted) setState(() => _isScanning = false);
+    }
+  }
+
+  Future<void> _connectAndSave(RouterProfile profile) async {
+    setState(() => _isConnecting = true);
+    try {
+      final service = MikroTikService(profile);
+      final data = await service.fetchDashboardSummary();
+      await _storage.saveProfile(profile, setAsActive: true);
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RouterDashboardScreen(
+            profile: profile,
+            initialData: data,
+          ),
+        ),
+      );
+    } catch (e) {
+      _showSnack(
+        'Gagal terhubung: ${e.toString().replaceFirst("Exception: ", "")}',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isConnecting = false);
+    }
+  }
+
+  void _submitNewConnection() {
+    final host = _ipController.text.trim();
+    final portText = _portController.text.trim();
+    final port = int.tryParse(portText) ?? 8777;
+    final user = _userController.text.trim();
+    final pass = _passController.text;
+    final label = _labelController.text.trim().isEmpty ? host : _labelController.text.trim();
+
+    if (host.isEmpty || user.isEmpty) {
+      _showSnack('IP Router dan Username wajib diisi.', isError: true);
+      return;
+    }
+
+    final protocol = port == 443
+        ? ApiProtocol.restApiHttps
+        : port == 80
+            ? ApiProtocol.restApiHttp
+            : ApiProtocol.routerOsApi8728;
+
+    final newProfile = RouterProfile(
+      id: '${host}_${user}_$port',
+      label: label,
+      host: host,
+      port: port,
+      username: user,
+      password: pass,
+      protocol: protocol,
+      rolePreference: _selectedRolePreference,
+    );
+
+    _connectAndSave(newProfile);
+  }
+
+  Future<void> _deleteProfile(RouterProfile profile) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Hapus Profil Router?'),
+        content: Text('Hapus profil "${profile.label}" (${profile.host}) dari daftar tersimpan?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF3B30),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    await _storage.deleteProfile(profile.id);
+    await _loadSavedProfiles();
+    _showSnack('Profil "${profile.label}" berhasil dihapus.');
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: isError ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // PAGE TITLE (SwiftUI Large Title)
+                  const Text(
+                    'Koneksi Router',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1C1C1E),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pilih profil tersimpan atau hubungkan router baru.',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // SAVED PROFILES SECTION
+                  if (_savedProfiles.isNotEmpty) ...[
+                    _buildSectionHeader('ROUTER TERSIMPAN'),
+                    _buildSavedProfilesCard(),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // NEW CONNECTION FORM SECTION (With Auto-Scan Action)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSectionHeader('HUBUNGKAN ROUTER BARU'),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF007AFF),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: _isScanning || _isConnecting ? null : _scanNetwork,
+                          icon: _isScanning
+                              ? const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF007AFF)),
+                                )
+                              : const Icon(Icons.wifi_find_rounded, size: 16),
+                          label: Text(
+                            _isScanning ? 'Memindai...' : 'Pindai Wi-Fi',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  _buildConnectionFormCard(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF6C6C70),
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSavedProfilesCard() {
+    return Column(
+      children: _savedProfiles.map((p) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.router_rounded, color: Color(0xFF007AFF), size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            p.label,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5, color: Color(0xFF1C1C1E)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (p.rolePreference != LoginRolePreference.auto) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: p.rolePreference == LoginRolePreference.technician
+                                  ? const Color(0xFF007AFF).withValues(alpha: 0.1)
+                                  : const Color(0xFF34C759).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              p.rolePreference.label,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: p.rolePreference == LoginRolePreference.technician
+                                    ? const Color(0xFF007AFF)
+                                    : const Color(0xFF34C759),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${p.username}@${p.host}:${p.port}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93), fontFamily: 'monospace'),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Hapus',
+                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFF8E8E93), size: 18),
+                onPressed: _isConnecting ? null : () => _deleteProfile(p),
+              ),
+              const SizedBox(width: 4),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: _isConnecting ? null : () => _connectAndSave(p),
+                child: const Text('Hubungkan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildQuickFillChip(String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F2F7),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFE5E5EA), width: 0.6),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF007AFF), fontFamily: 'monospace'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConnectionFormCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // LABEL INPUT
+          _buildMinimalField(
+            controller: _labelController,
+            label: 'Nama / Label Router',
+            placeholder: 'Misal: Router Distribusi Core',
+            icon: Icons.label_outline_rounded,
+          ),
+          const SizedBox(height: 12),
+
+          // HOST & PORT ROW
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildMinimalField(
+                  controller: _ipController,
+                  label: 'IP / Host Router',
+                  placeholder: '192.168.88.1',
+                  icon: Icons.language_rounded,
+                  isMonospace: true,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: _buildMinimalField(
+                  controller: _portController,
+                  label: 'Port API',
+                  placeholder: '8777',
+                  icon: Icons.tag_rounded,
+                  keyboardType: TextInputType.number,
+                  isMonospace: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // QUICK FILL PRESETS
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                _buildQuickFillChip('192.168.88.1', () => setState(() => _ipController.text = '192.168.88.1')),
+                const SizedBox(width: 6),
+                _buildQuickFillChip('Port 8777', () => setState(() => _portController.text = '8777')),
+                const SizedBox(width: 6),
+                _buildQuickFillChip('Port 8728', () => setState(() => _portController.text = '8728')),
+                const SizedBox(width: 6),
+                _buildQuickFillChip('User admin', () => setState(() => _userController.text = 'admin')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // USERNAME
+          _buildMinimalField(
+            controller: _userController,
+            label: 'Username',
+            placeholder: 'admin',
+            icon: Icons.person_outline_rounded,
+          ),
+          const SizedBox(height: 12),
+
+          // PASSWORD
+          _buildMinimalField(
+            controller: _passController,
+            label: 'Password',
+            placeholder: '••••••••',
+            icon: Icons.lock_outline_rounded,
+            obscureText: _obscurePass,
+            suffix: IconButton(
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                _obscurePass ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                color: const Color(0xFF8E8E93),
+                size: 18,
+              ),
+              onPressed: () => setState(() => _obscurePass = !_obscurePass),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ROLE PREFERENCE SELECTOR
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Mode Masuk Aplikasi',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6C6C70),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F2F7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _selectedRolePreference == LoginRolePreference.technician
+                          ? Icons.admin_panel_settings_outlined
+                          : (_selectedRolePreference == LoginRolePreference.user
+                              ? Icons.person_outline_rounded
+                              : Icons.auto_mode_rounded),
+                      size: 18,
+                      color: _selectedRolePreference == LoginRolePreference.technician
+                          ? const Color(0xFF007AFF)
+                          : (_selectedRolePreference == LoginRolePreference.user
+                              ? const Color(0xFF34C759)
+                              : const Color(0xFF8E8E93)),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<LoginRolePreference>(
+                          isExpanded: true,
+                          isDense: true,
+                          value: _selectedRolePreference,
+                          icon: const Icon(Icons.unfold_more_rounded, size: 18, color: Color(0xFF8E8E93)),
+                          items: LoginRolePreference.values.map((pref) {
+                            return DropdownMenuItem<LoginRolePreference>(
+                              value: pref,
+                              child: Text(
+                                pref.label,
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1C1C1E),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedRolePreference = val);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // CONNECT BUTTON (Solid iOS Blue)
+          SizedBox(
+            height: 44,
+            child: TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: _isConnecting ? const Color(0xFF8E8E93) : const Color(0xFF007AFF),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _isConnecting ? null : _submitNewConnection,
+              child: _isConnecting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text(
+                      'Hubungkan & Simpan',
+                      style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMinimalField({
+    required TextEditingController controller,
+    required String label,
+    required String placeholder,
+    IconData? icon,
+    bool obscureText = false,
+    bool isMonospace = false,
+    Widget? suffix,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF6C6C70),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F2F7),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            style: TextStyle(
+              fontSize: 14,
+              fontFamily: isMonospace ? 'monospace' : null,
+              color: const Color(0xFF1C1C1E),
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: placeholder,
+              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFC7C7CC)),
+              prefixIcon: icon != null
+                  ? Icon(icon, size: 18, color: const Color(0xFF8E8E93))
+                  : null,
+              prefixIconConstraints: const BoxConstraints(minWidth: 40, maxWidth: 40, minHeight: 44, maxHeight: 44),
+              suffixIcon: suffix,
+              suffixIconConstraints: const BoxConstraints(minWidth: 40, maxWidth: 40, minHeight: 44, maxHeight: 44),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.2),
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: icon == null ? 12 : 0,
+                vertical: 11,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+#screens_router_dashboard_screen
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../models/router_models.dart';
+import '../services/mikrotik_service.dart';
+import '../services/profile_storage_service.dart';
+import '../widgets/customer_tab_view.dart';
+import '../widgets/winbox_panel_view.dart';
+import 'profile_list_screen.dart';
+
+class RouterDashboardScreen extends StatefulWidget {
+  final RouterProfile profile;
+  final Map<String, dynamic> initialData;
+
+  const RouterDashboardScreen({
+    super.key,
+    required this.profile,
+    required this.initialData,
+  });
+
+  @override
+  State<RouterDashboardScreen> createState() => _RouterDashboardScreenState();
+}
+
+class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
+  late MikroTikService _service;
+  late Map<String, dynamic> _data;
+  bool _isLoading = false;
+  int _selectedTab = 0; // 0: Pelanggan, 1: Winbox PC
+
+  bool _isOnline = true;
+  Timer? _liveHeartbeatTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = MikroTikService(widget.profile);
+    _data = widget.initialData;
+    _startLiveHeartbeat();
+  }
+
+  @override
+  void dispose() {
+    _liveHeartbeatTimer?.cancel();
+    _service.dispose();
+    super.dispose();
+  }
+
+  void _startLiveHeartbeat() {
+    _liveHeartbeatTimer?.cancel();
+    _liveHeartbeatTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+      if (!mounted || _isLoading) return;
+      final isAlive = await _service.checkConnection();
+      if (!mounted) return;
+
+      if (isAlive != _isOnline) {
+        setState(() {
+          _isOnline = isAlive;
+          if (isAlive) {
+            _showSnack('Koneksi router kembali aktif (Online).');
+          }
+        });
+      }
+
+      // Update ringan status resource (CPU, Uptime) di background tanpa loading spinner
+      if (isAlive) {
+        try {
+          final res = await _service.fetchMenu('/system/resource/print');
+          if (mounted && res.isNotEmpty) {
+            setState(() {
+              _data['resource'] = res.first;
+            });
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  UserRoleInfo get _role => _data['role'] as UserRoleInfo;
+
+  Future<void> _refresh() async {
+    setState(() => _isLoading = true);
+    try {
+      final fresh = await _service.fetchDashboardSummary();
+      if (mounted) {
+        setState(() {
+          _data = fresh;
+          _isOnline = true;
+          if (_role.isUser) {
+            _selectedTab = 0;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isOnline = false);
+      }
+      _showSnack('Gagal memuat ulang: ${e.toString().replaceFirst("Exception: ", "")}', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _switchRouter() async {
+    _liveHeartbeatTimer?.cancel();
+    await _service.dispose();
+    await ProfileStorageService().setActiveProfileId(null);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const ProfileListScreen()),
+    );
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: isError ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Mode User dikunci hanya ke tab Ringkasan & Perangkat
+    final showSwitcher = _role.isTechnician;
+    final activeTab = _role.isTechnician ? _selectedTab : 0;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    _data['identity']?.toString() ?? widget.profile.label,
+                    style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // REAL-TIME 1:1 LIVE STATUS PILL
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _isOnline ? const Color(0xFF34C759).withValues(alpha: 0.12) : const Color(0xFFFF3B30).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: _isOnline ? const Color(0xFF34C759).withValues(alpha: 0.3) : const Color(0xFFFF3B30).withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: _isOnline ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _isOnline ? '1:1 LIVE' : 'OFFLINE',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: _isOnline ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            if (_role.isUser)
+              Container(
+                margin: const EdgeInsets.only(top: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF007AFF).withValues(alpha: 0.25), width: 0.5),
+                ),
+                child: const Text(
+                  'MODE USER',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF007AFF),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              )
+            else
+              Text(
+                '${widget.profile.host} • ${_role.roleBadge}',
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF8E8E93)),
+              ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Segarkan',
+            icon: _isLoading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh_rounded),
+            onPressed: _isLoading ? null : _refresh,
+          ),
+          IconButton(
+            tooltip: 'Ganti Router',
+            icon: const Icon(Icons.swap_horiz_rounded),
+            onPressed: _switchRouter,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // REAL-TIME NETWORK DOWN WARNING BANNER
+          if (!_isOnline)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFFF3B30),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 1.8, color: Colors.white),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Jaringan / Router Terputus — Mencoba menyambung kembali...',
+                      style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _refresh,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: const Text('Coba Lagi', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 880),
+                child: Column(
+                  children: [
+                    if (showSwitcher) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: _buildTopModeSwitcher(),
+                      ),
+                    ],
+                    Expanded(
+                      child: activeTab == 0
+                          ? CustomerTabView(
+                              data: _data,
+                              role: _role,
+                              service: _service,
+                              onRefresh: _refresh,
+                              showSnack: _showSnack,
+                            )
+                          : WinboxPanelView(
+                              service: _service,
+                              data: _data,
+                              showSnack: _showSnack,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopModeSwitcher() {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5E5EA),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          _buildTopModeItem(index: 0, title: 'Ringkasan & Perangkat', icon: Icons.devices_rounded),
+          _buildTopModeItem(index: 1, title: 'Winbox PC (Full)', icon: Icons.admin_panel_settings_rounded),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopModeItem({required int index, required String title, required IconData icon}) {
+    final isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? const Color(0xFF007AFF) : const Color(0xFF6C6C70)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? const Color(0xFF1C1C1E) : const Color(0xFF6C6C70),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+#widgets_customer_tab_view
+import 'package:flutter/material.dart';
+import '../models/router_models.dart';
+import '../services/mikrotik_service.dart';
+import 'winbox_dialogs.dart';
+
+class CustomerTabView extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final UserRoleInfo role;
+  final MikroTikService service;
+  final VoidCallback onRefresh;
+  final Function(String, {bool isError}) showSnack;
+
+  const CustomerTabView({
+    super.key,
+    required this.data,
+    required this.role,
+    required this.service,
+    required this.onRefresh,
+    required this.showSnack,
+  });
+
+  @override
+  State<CustomerTabView> createState() => _CustomerTabViewState();
+}
+
+class _CustomerTabViewState extends State<CustomerTabView> {
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  // 1-Tap Connection Ping Test State
+  bool _isTestingPing = false;
+  String? _pingStatusText;
+  Color? _pingStatusColor;
+  IconData? _pingStatusIcon;
+
+  // Toggle reveal Wi-Fi password
+  final Map<String, bool> _revealedPasswords = {};
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _runConnectionTest() async {
+    setState(() {
+      _isTestingPing = true;
+      _pingStatusText = 'Menguji latensi ke internet...';
+      _pingStatusColor = const Color(0xFF007AFF);
+      _pingStatusIcon = Icons.sync_rounded;
+    });
+
+    try {
+      final res = await widget.service.pingHost('8.8.8.8', count: 2);
+      if (!mounted) return;
+
+      int? latencyMs;
+      bool receivedReply = false;
+
+      for (final r in res) {
+        final timeStr = r['time'] ?? '';
+        if (timeStr.isNotEmpty) {
+          receivedReply = true;
+          // Format e.g. "15ms", "15ms20us", or "0.015s"
+          final match = RegExp(r'(\d+)ms').firstMatch(timeStr);
+          if (match != null) {
+            latencyMs = int.tryParse(match.group(1)!);
+          } else {
+            final numOnly = RegExp(r'(\d+)').firstMatch(timeStr);
+            if (numOnly != null) latencyMs = int.tryParse(numOnly.group(1)!);
+          }
+          break;
+        }
+      }
+
+      setState(() {
+        if (!receivedReply) {
+          _pingStatusText = 'Tidak Terhubung / Tidak Ada Internet';
+          _pingStatusColor = const Color(0xFFFF3B30);
+          _pingStatusIcon = Icons.cloud_off_rounded;
+        } else if (latencyMs != null && latencyMs < 50) {
+          _pingStatusText = 'Koneksi Sangat Lancar ($latencyMs ms)';
+          _pingStatusColor = const Color(0xFF34C759);
+          _pingStatusIcon = Icons.check_circle_rounded;
+        } else if (latencyMs != null && latencyMs < 150) {
+          _pingStatusText = 'Koneksi Stabil ($latencyMs ms)';
+          _pingStatusColor = const Color(0xFF007AFF);
+          _pingStatusIcon = Icons.wifi_rounded;
+        } else if (latencyMs != null) {
+          _pingStatusText = 'Koneksi Agak Lambat ($latencyMs ms)';
+          _pingStatusColor = const Color(0xFFFF9500);
+          _pingStatusIcon = Icons.warning_amber_rounded;
+        } else {
+          _pingStatusText = 'Koneksi Terhubung Normal';
+          _pingStatusColor = const Color(0xFF34C759);
+          _pingStatusIcon = Icons.check_circle_rounded;
+        }
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _pingStatusText = 'Gagal memeriksa koneksi';
+          _pingStatusColor = const Color(0xFFFF3B30);
+          _pingStatusIcon = Icons.error_outline_rounded;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isTestingPing = false);
+    }
+  }
+
+  Future<void> _handleToggleBlock(ConnectedDevice device) async {
+    final willBlock = !device.isBlocked;
+    final actionText = willBlock ? 'Blokir' : 'Buka Blokir';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('$actionText Perangkat?', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        content: Text(
+          willBlock
+              ? 'Blokir akses internet untuk ${device.hostName} (${device.ipAddress} • ${device.macAddress})?'
+              : 'Buka kembali akses internet untuk ${device.hostName} (${device.macAddress})?',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF3C3C43)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal', style: TextStyle(color: Color(0xFF8E8E93))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: willBlock ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(actionText, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await widget.service.toggleBlockMac(device.macAddress, block: willBlock, label: device.hostName);
+      if (device.ipAddress.isNotEmpty && device.ipAddress != '-' && device.ipAddress != 'Terblokir') {
+        await widget.service.toggleBlockIp(device.ipAddress, block: willBlock, label: device.hostName);
+      }
+      widget.showSnack(willBlock ? 'Perangkat ${device.hostName} berhasil diblokir.' : 'Blokir untuk ${device.hostName} dibuka.');
+      widget.onRefresh();
+    } catch (e) {
+      widget.showSnack('Aksi ditolak router: ${e.toString().replaceFirst("Exception: ", "")}', isError: true);
+    }
+  }
+
+  int _deviceFilterMode = 0; // 0: Semua, 1: Aktif, 2: Terblokir
+
+  List<ConnectedDevice> get _allDevices {
+    final devList = (widget.data['devices'] as List<ConnectedDevice>?) ?? [];
+    if (devList.isNotEmpty) return devList;
+
+    // Fallback dari staticDevices jika devices kosong
+    final staticList = (widget.data['staticDevices'] as List<StaticHostDevice>?) ?? [];
+    return staticList.map((s) => ConnectedDevice(
+      macAddress: s.macAddress,
+      ipAddress: s.ipAddress,
+      hostName: s.customerName,
+      source: s.interfaceName,
+      isBlocked: s.isBlocked,
+    )).toList();
+  }
+
+  List<ConnectedDevice> get _filteredDevices {
+    final query = _searchQuery.trim().toLowerCase();
+    var list = _allDevices;
+    if (_deviceFilterMode == 1) {
+      list = list.where((d) => !d.isBlocked).toList();
+    } else if (_deviceFilterMode == 2) {
+      list = list.where((d) => d.isBlocked).toList();
+    }
+    if (query.isEmpty) return list;
+    return list.where((d) {
+      final name = d.hostName.toLowerCase();
+      final ip = d.ipAddress.toLowerCase();
+      final mac = d.macAddress.toLowerCase();
+      return name.contains(query) || ip.contains(query) || mac.contains(query);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resource = (widget.data['resource'] as Map<String, String>?) ?? {};
+    final wifis = (widget.data['wifis'] as List<WifiInterfaceInfo>?) ?? [];
+    final ips = (widget.data['ips'] as List<Map<String, String>>?) ?? [];
+    final filteredDevices = _filteredDevices;
+    final totalDevices = _allDevices.length;
+    final blockedDevices = _allDevices.where((d) => d.isBlocked).length;
+
+    final routerIp = ips.isNotEmpty ? (ips.first['address'] ?? widget.service.profile.host) : widget.service.profile.host;
+    final boardName = resource['board-name'] ?? resource['platform'] ?? 'MikroTik Router';
+    final uptime = resource['uptime'] ?? '-';
+    final cpuLoad = resource['cpu-load'] ?? '0';
+    final canWrite = widget.role.canWrite;
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      children: [
+        // Mode Read-Only Banner jika user tidak memiliki izin write
+        if (widget.role.isReadOnly)
+          _buildBanner(
+            title: 'Mode Baca: Akun ini tidak memiliki izin write di MikroTik. Perubahan Wi-Fi dan aksi blokir tidak aktif.',
+            color: const Color(0xFFB45309),
+            bg: const Color(0xFFFFF9E6),
+            border: const Color(0xFFFFE082),
+          ),
+
+        // =====================================================================
+        // 1. STATUS KONEKSI & TRAFIK RINGKAS
+        // =====================================================================
+        _buildSectionHeader('STATUS ROUTER & JARINGAN'),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF34C759),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Router Aktif & Terhubung',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      boardName,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF007AFF)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1, thickness: 0.5, color: Color(0xFFE5E5EA)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricItem(
+                      icon: Icons.language_rounded,
+                      label: 'IP Router',
+                      value: routerIp,
+                      isMonospace: true,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(width: 0.5, height: 32, color: const Color(0xFFE5E5EA)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildMetricItem(
+                      icon: Icons.timer_outlined,
+                      label: 'Uptime',
+                      value: uptime,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(width: 0.5, height: 32, color: const Color(0xFFE5E5EA)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildMetricItem(
+                      icon: Icons.memory_rounded,
+                      label: 'CPU Load',
+                      value: '$cpuLoad%',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // =====================================================================
+        // 2. CEK KONEKSI CEPAT (1-TAP CONNECTION TEST)
+        // =====================================================================
+        _buildSectionHeader('KUALITAS KONEKSI INTERNET'),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.speed_rounded, color: Color(0xFF007AFF), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Tes Kecepatan Respons', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text('Periksa kestabilan koneksi internet ke DNS Global', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: _isTestingPing ? null : _runConnectionTest,
+                    child: _isTestingPing
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Uji Sekarang', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+              if (_pingStatusText != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _pingStatusColor?.withValues(alpha: 0.1) ?? const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _pingStatusColor?.withValues(alpha: 0.3) ?? Colors.transparent, width: 0.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(_pingStatusIcon ?? Icons.info_outline_rounded, color: _pingStatusColor, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _pingStatusText!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _pingStatusColor ?? const Color(0xFF1C1C1E),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // =====================================================================
+        // 3. KONTROL WI-FI SEDERHANA (Otomatis tampil hanya jika ada interface Wi-Fi)
+        // =====================================================================
+        if (wifis.isNotEmpty) ...[
+          _buildSectionHeader('JARINGAN WI-FI'),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: wifis.length,
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 56, color: Color(0xFFE5E5EA)),
+              itemBuilder: (context, idx) {
+                final w = wifis[idx];
+                final isRevealed = _revealedPasswords[w.id] ?? false;
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF34C759).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.wifi_rounded, color: Color(0xFF34C759), size: 20),
+                  ),
+                  title: Text(w.ssid, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  subtitle: Row(
+                    children: [
+                      Text(
+                        isRevealed ? (w.password.isEmpty ? '(Terbuka/Tanpa Sandi)' : w.password) : '••••••••',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: isRevealed && w.password.isNotEmpty ? 'monospace' : null,
+                          color: const Color(0xFF8E8E93),
+                        ),
+                      ),
+                      if (w.password.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => setState(() => _revealedPasswords[w.id] = !isRevealed),
+                          child: Icon(
+                            isRevealed ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            size: 15,
+                            color: const Color(0xFF8E8E93),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  trailing: TextButton(
+                    style: TextButton.styleFrom(
+                      backgroundColor: canWrite ? const Color(0xFFF2F2F7) : const Color(0xFFF2F2F7),
+                      foregroundColor: canWrite ? const Color(0xFF007AFF) : const Color(0xFF8E8E93),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    ),
+                    onPressed: canWrite
+                        ? () => WinboxDialogs.showEditWifiDialog(
+                              context: context,
+                              service: widget.service,
+                              wifi: w,
+                              onSuccess: widget.onRefresh,
+                              showSnack: widget.showSnack,
+                            )
+                        : null,
+                    child: Text(canWrite ? 'Ubah' : 'Lihat Saja', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // =====================================================================
+        // 4. PERANGKAT TERHUBUNG & BLOKIR PERANGKAT ASING
+        // =====================================================================
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionHeader('PERANGKAT TERHUBUNG ($totalDevices)'),
+            if (blockedDevices > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '$blockedDevices diblokir',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFFF3B30)),
+                ),
+              ),
+          ],
+        ),
+
+        // Pencarian Perangkat
+        Container(
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E5EA), width: 0.6),
+          ),
+          child: TextField(
+            controller: _searchController,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF1C1C1E)),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF8E8E93)),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF8E8E93)),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+              hintText: 'Cari nama, IP, atau MAC perangkat...',
+              hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            onChanged: (v) => setState(() => _searchQuery = v),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // FILTER CHIPS (Semua, Aktif, Terblokir)
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              _buildDeviceFilterChip(0, 'Semua ($totalDevices)', null),
+              const SizedBox(width: 6),
+              _buildDeviceFilterChip(1, 'Aktif (${totalDevices - blockedDevices})', const Color(0xFF34C759)),
+              const SizedBox(width: 6),
+              _buildDeviceFilterChip(2, 'Diblokir ($blockedDevices)', const Color(0xFFFF3B30)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        if (filteredDevices.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+            ),
+            child: const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.devices_other_rounded, size: 36, color: Color(0xFFC7C7CC)),
+                  SizedBox(height: 8),
+                  Text('Belum ada perangkat yang terdeteksi.', style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13)),
+                ],
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredDevices.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, idx) {
+              final d = filteredDevices[idx];
+              final isBlocked = d.isBlocked;
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isBlocked ? const Color(0xFFFF3B30).withValues(alpha: 0.35) : const Color(0xFFE5E5EA),
+                    width: isBlocked ? 1.0 : 0.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: isBlocked ? const Color(0xFFFF3B30).withValues(alpha: 0.1) : const Color(0xFF007AFF).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        isBlocked ? Icons.block_rounded : Icons.phonelink_rounded,
+                        color: isBlocked ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  d.hostName,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1C1C1E)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isBlocked ? const Color(0xFFFF3B30).withValues(alpha: 0.1) : const Color(0xFF34C759).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  isBlocked ? 'DIBLOKIR' : 'AKTIF',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isBlocked ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${d.ipAddress} • ${d.macAddress}',
+                            style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace', color: Color(0xFF8E8E93)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: canWrite
+                            ? (isBlocked ? const Color(0xFF34C759) : const Color(0xFFFF3B30))
+                            : const Color(0xFF8E8E93),
+                        side: BorderSide(
+                          color: canWrite
+                              ? (isBlocked ? const Color(0xFF34C759) : const Color(0xFFFF3B30))
+                              : const Color(0xFFE5E5EA),
+                          width: 0.8,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: canWrite ? () => _handleToggleBlock(d) : null,
+                      child: Text(
+                        isBlocked ? 'Buka' : 'Blokir',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildMetricItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    bool isMonospace = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 12, color: const Color(0xFF8E8E93)),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontWeight: FontWeight.w500)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            fontFamily: isMonospace ? 'monospace' : null,
+            color: const Color(0xFF1C1C1E),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeviceFilterChip(int mode, String label, Color? accentColor) {
+    final isSelected = _deviceFilterMode == mode;
+    final color = accentColor ?? const Color(0xFF007AFF);
+
+    return InkWell(
+      onTap: () => setState(() => _deviceFilterMode = mode),
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? color : const Color(0xFFE5E5EA),
+            width: isSelected ? 1.0 : 0.6,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? color : const Color(0xFF6C6C70),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF6C6C70),
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBanner({required String title, required Color color, required Color bg, required Color border}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border, width: 0.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(child: Text(title, style: TextStyle(fontSize: 12, color: color))),
+        ],
+      ),
+    );
+  }
+}
