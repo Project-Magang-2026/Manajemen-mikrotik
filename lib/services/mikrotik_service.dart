@@ -743,10 +743,14 @@ class MikroTikService {
 
   /// Diagnostic Tool: Ping Host
   Future<List<Map<String, String>>> pingHost(String target, {int count = 4}) async {
-    return await runCommand('/ping', params: {
-      'address': target,
-      'count': count.toString(),
-    });
+    return await runCommand(
+      '/ping',
+      params: {
+        'address': target,
+        'count': count.toString(),
+      },
+      timeout: Duration(seconds: count + 5),
+    );
   }
 
   /// Generic Fetcher untuk sembarang menu RouterOS (Winbox Complete)
@@ -783,7 +787,11 @@ class MikroTikService {
 
   /// Winbox: Buat File Backup Router
   Future<void> createBackup(String name) async {
-    await runCommand('/system/backup/save', params: {'name': name});
+    await runCommand(
+      '/system/backup/save',
+      params: {'name': name},
+      timeout: const Duration(seconds: 10),
+    );
   }
 
   /// Menjalankan perintah RouterOS secara aman (mengembalikan list kosong jika menu tidak ada di perangkat)
@@ -799,6 +807,7 @@ class MikroTikService {
   Future<List<Map<String, String>>> runCommand(
     String path, {
     Map<String, String>? params,
+    Duration? timeout,
   }) {
     if (_isDisposed) {
       return Future.error(Exception('MikroTikService sudah di-dispose.'));
@@ -807,7 +816,7 @@ class MikroTikService {
     final completer = Completer<List<Map<String, String>>>();
     _commandQueue = _commandQueue.then((_) async {
       try {
-        final result = await _executeCommand(path, params: params);
+        final result = await _executeCommand(path, params: params, timeout: timeout);
         if (!completer.isCompleted) completer.complete(result);
       } catch (e, st) {
         if (!completer.isCompleted) completer.completeError(e, st);
@@ -819,6 +828,7 @@ class MikroTikService {
   Future<List<Map<String, String>>> _executeCommand(
     String path, {
     Map<String, String>? params,
+    Duration? timeout,
   }) async {
     if (profile.protocol == ApiProtocol.routerOsApi8728) {
       if (_persistentBinaryClient == null || _persistentBinaryClient!.isClosed) {
@@ -837,7 +847,10 @@ class MikroTikService {
         if (params != null) {
           params.forEach((k, v) => words.add('=$k=$v'));
         }
-        final res = await _persistentBinaryClient!.sendCommand(words);
+        final res = await _persistentBinaryClient!.sendCommand(
+          words,
+          timeout: timeout ?? const Duration(milliseconds: 2500),
+        );
         _notifyConnectionState(true);
         return res;
       } catch (e) {
@@ -992,7 +1005,10 @@ class _RouterOsBinaryClient {
     return utf8.decode(bytes, allowMalformed: true);
   }
 
-  Future<List<Map<String, String>>> sendCommand(List<String> words) async {
+  Future<List<Map<String, String>>> sendCommand(
+    List<String> words, {
+    Duration timeout = const Duration(milliseconds: 2500),
+  }) async {
     if (_socket == null) throw Exception('Socket belum terhubung.');
     final completer = Completer<List<Map<String, String>>>();
     final records = <Map<String, String>>[];
@@ -1045,7 +1061,7 @@ class _RouterOsBinaryClient {
     await _socket!.flush();
 
     return completer.future.timeout(
-      const Duration(milliseconds: 1800),
+      timeout,
       onTimeout: () {
         sub.cancel();
         _isClosed = true;

@@ -5,6 +5,7 @@ import '../services/mikrotik_service.dart';
 import '../services/profile_storage_service.dart';
 import '../widgets/customer_tab_view.dart';
 import '../widgets/winbox_panel_view.dart';
+import '../widgets/winbox_tools_view.dart';
 import 'profile_list_screen.dart';
 
 class RouterDashboardScreen extends StatefulWidget {
@@ -22,30 +23,48 @@ class RouterDashboardScreen extends StatefulWidget {
       _RouterDashboardScreenState();
 }
 
-class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
+class _RouterDashboardScreenState extends State<RouterDashboardScreen>
+    with WidgetsBindingObserver {
   late MikroTikService _service;
   late Map<String, dynamic> _data;
   bool _isLoading = false;
   int _selectedTab = 0;
   bool _isOnline = true;
+  bool _isAppInForeground = true;
   Timer? _heartbeatTimer;
   StreamSubscription<bool>? _connectionSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _service = MikroTikService(widget.profile);
     _data = widget.initialData;
     _subscribeConnection();
-    _startHeartbeat();
+    _syncHeartbeatState();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _connectionSub?.cancel();
-    _heartbeatTimer?.cancel();
+    _stopHeartbeat();
     _service.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isAppInForeground = true;
+      _syncHeartbeatState();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _isAppInForeground = false;
+      _stopHeartbeat();
+    }
   }
 
   void _subscribeConnection() {
@@ -58,12 +77,26 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
     });
   }
 
-  void _startHeartbeat() {
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
+  void _syncHeartbeatState() {
+    final shouldRun = _isAppInForeground && _selectedTab == 0;
+    if (!shouldRun) {
+      _stopHeartbeat();
+      return;
+    }
+    if (_heartbeatTimer != null && _heartbeatTimer!.isActive) return;
+
     _heartbeatTimer =
-        Timer.periodic(const Duration(milliseconds: 1500), (_) async {
-      if (!mounted || _isLoading) return;
+        Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted || _isLoading || !_isAppInForeground || _selectedTab != 0) {
+        return;
+      }
       final alive = await _service.checkConnection();
-      if (!mounted) return;
+      if (!mounted || !_isAppInForeground || _selectedTab != 0) return;
       if (alive != _isOnline) {
         setState(() => _isOnline = alive);
       }
@@ -91,6 +124,7 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
           _isOnline = true;
           if (_role.isUser) _selectedTab = 0;
         });
+        _syncHeartbeatState();
       }
     } catch (e) {
       if (mounted) setState(() => _isOnline = false);
@@ -101,7 +135,7 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
   }
 
   Future<void> _switchRouter() async {
-    _heartbeatTimer?.cancel();
+    _stopHeartbeat();
     await _service.dispose();
     await ProfileStorageService().setActiveProfileId(null);
     if (!mounted) return;
@@ -111,6 +145,7 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
   }
 
   void _showSnack(String msg, {bool isError = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: const TextStyle(fontSize: 13)),
@@ -191,7 +226,7 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
             ),
           ],
           Expanded(
-            child: activeTab == 0
+            child: !isTechnician
                 ? CustomerTabView(
                     data: _data,
                     role: _role,
@@ -199,10 +234,28 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
                     onRefresh: _refresh,
                     showSnack: _showSnack,
                   )
-                : WinboxPanelView(
-                    service: _service,
-                    data: _data,
-                    showSnack: _showSnack,
+                : IndexedStack(
+                    index: activeTab.clamp(0, 2),
+                    children: [
+                      CustomerTabView(
+                        data: _data,
+                        role: _role,
+                        service: _service,
+                        onRefresh: _refresh,
+                        showSnack: _showSnack,
+                      ),
+                      WinboxPanelView(
+                        service: _service,
+                        data: _data,
+                        showSnack: _showSnack,
+                      ),
+                      WinboxToolsView(
+                        service: _service,
+                        data: _data,
+                        canWrite: _role.canWrite,
+                        showSnack: _showSnack,
+                      ),
+                    ],
                   ),
           ),
         ],
@@ -308,6 +361,7 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
           _buildTabItem(0, 'Ringkasan', Icons.devices_rounded),
           _buildTabItem(
               1, 'Winbox', Icons.admin_panel_settings_rounded),
+          _buildTabItem(2, 'Tools', Icons.build_rounded),
         ],
       ),
     );
@@ -317,7 +371,10 @@ class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
     final selected = _selectedTab == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedTab = index),
+        onTap: () {
+          setState(() => _selectedTab = index);
+          _syncHeartbeatState();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 8),

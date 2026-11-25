@@ -1,0 +1,4269 @@
+// ==============================================================================
+// POCKET WINBOX - SELURUH KODE FOLDER lib/ (TERSTRUKTUR PER BAGIAN FOLDER)
+// ==============================================================================
+//
+// STRUKTUR FOLDER lib/:
+//
+// lib/
+// ├── main.dart                              [Bagian: ROOT]
+// ├── models/                                [Bagian: MODELS]
+// │   ├── router_models.dart
+// │   └── winbox_models.dart
+// ├── services/                              [Bagian: SERVICES]
+// │   ├── mikrotik_auto_discovery.dart
+// │   ├── mikrotik_service.dart
+// │   ├── profile_storage_service.dart
+// │   └── router_discovery_service.dart
+// ├── screens/                               [Bagian: SCREENS]
+// │   ├── profile_list_screen.dart
+// │   └── router_dashboard_screen.dart
+// └── widgets/                               [Bagian: WIDGETS]
+//     ├── customer_tab_view.dart
+//     ├── winbox_panel_view.dart
+//     ├── winbox_dialogs.dart
+//     ├── winbox_item_inspector.dart
+//     └── winbox_tools_view.dart
+//
+// ==============================================================================
+
+// ##############################################################################
+// BAGIAN 1: ROOT (lib/)
+// ##############################################################################
+
+// ------------------------------------------------------------------------------
+// BAGIAN : ROOT (lib/)
+// FOLDER : lib/
+// FILE   : lib/main.dart
+// ------------------------------------------------------------------------------
+import 'package:flutter/material.dart';
+import 'services/profile_storage_service.dart';
+import 'screens/profile_list_screen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ProfileStorageService().setActiveProfileId(null);
+  runApp(const MikroTikIspApp());
+}
+
+class MikroTikIspApp extends StatefulWidget {
+  const MikroTikIspApp({super.key});
+
+  @override
+  State<MikroTikIspApp> createState() => _MikroTikIspAppState();
+}
+
+class _MikroTikIspAppState extends State<MikroTikIspApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      ProfileStorageService().setActiveProfileId(null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Pocket Winbox',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF5F5F7),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF0071E3),
+          secondary: Color(0xFF34C759),
+          surface: Colors.white,
+          onSurface: Color(0xFF1D1D1F),
+          error: Color(0xFFFF3B30),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF5F5F7),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1D1D1F),
+            letterSpacing: -0.4,
+          ),
+          iconTheme: IconThemeData(color: Color(0xFF0071E3)),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFFE8E8ED),
+          thickness: 0.5,
+          space: 0,
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          titleTextStyle: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1D1D1F),
+          ),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFF5F5F7),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFE8E8ED), width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide:
+                const BorderSide(color: Color(0xFF0071E3), width: 1.5),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          hintStyle:
+              const TextStyle(color: Color(0xFFAEAEB2), fontSize: 14),
+        ),
+      ),
+      home: const ProfileListScreen(),
+    );
+  }
+}
+
+// ##############################################################################
+// BAGIAN 2: MODELS (lib/models/)
+// ##############################################################################
+
+// ------------------------------------------------------------------------------
+// BAGIAN : MODELS (lib/models/)
+// FOLDER : lib/models/
+// FILE   : lib/models/router_models.dart
+// ------------------------------------------------------------------------------
+enum ApiProtocol {
+  routerOsApi8728,
+  restApiHttp,
+  restApiHttps,
+}
+
+extension ApiProtocolExt on ApiProtocol {
+  String get label {
+    switch (this) {
+      case ApiProtocol.routerOsApi8728:
+        return 'RouterOS API (Port 8728)';
+      case ApiProtocol.restApiHttp:
+        return 'REST API HTTP (Port 80)';
+      case ApiProtocol.restApiHttps:
+        return 'REST API HTTPS (Port 443)';
+    }
+  }
+
+  int get defaultPort {
+    switch (this) {
+      case ApiProtocol.routerOsApi8728:
+        return 8728;
+      case ApiProtocol.restApiHttp:
+        return 80;
+      case ApiProtocol.restApiHttps:
+        return 443;
+    }
+  }
+}
+
+enum AppRole {
+  user,
+  technician,
+}
+
+enum LoginRolePreference {
+  auto,
+  technician,
+  user,
+}
+
+extension LoginRolePreferenceExt on LoginRolePreference {
+  String get label {
+    switch (this) {
+      case LoginRolePreference.auto:
+        return 'Otomatis (Sesuai Izin Akun)';
+      case LoginRolePreference.technician:
+        return 'Masuk sebagai Teknisi';
+      case LoginRolePreference.user:
+        return 'Masuk sebagai User';
+    }
+  }
+}
+
+class RouterProfile {
+  final String id;
+  final String label;
+  final String host;
+  final int port;
+  final String username;
+  final String password;
+  final ApiProtocol protocol;
+  final LoginRolePreference rolePreference;
+
+  RouterProfile({
+    required this.id,
+    required this.label,
+    required this.host,
+    required this.port,
+    required this.username,
+    required this.password,
+    required this.protocol,
+    this.rolePreference = LoginRolePreference.auto,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'host': host,
+        'port': port,
+        'username': username,
+        'password': password,
+        'protocol': protocol.name,
+        'rolePreference': rolePreference.name,
+      };
+
+  factory RouterProfile.fromJson(Map<String, dynamic> json) {
+    return RouterProfile(
+      id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      label: json['label'] ?? json['host'] ?? 'Router',
+      host: json['host'] ?? '',
+      port: json['port'] ?? 8728,
+      username: json['username'] ?? '',
+      password: json['password'] ?? '',
+      protocol: ApiProtocol.values.firstWhere(
+        (e) => e.name == json['protocol'],
+        orElse: () => ApiProtocol.routerOsApi8728,
+      ),
+      rolePreference: LoginRolePreference.values.firstWhere(
+        (e) => e.name == json['rolePreference'],
+        orElse: () => LoginRolePreference.auto,
+      ),
+    );
+  }
+}
+
+class UserRoleInfo {
+  final String username;
+  final String groupName;
+  final List<String> policies;
+  final AppRole role;
+  final bool canWrite;
+  final bool hasFull;
+  final bool canReboot;
+  final bool canManageUsers;
+  final bool canRunTest;
+
+  UserRoleInfo({
+    required this.username,
+    required this.groupName,
+    required this.policies,
+    required this.role,
+    required this.canWrite,
+    required this.hasFull,
+    required this.canReboot,
+    required this.canManageUsers,
+    required this.canRunTest,
+  });
+
+  bool get isTechnician => role == AppRole.technician;
+  bool get isUser => role == AppRole.user;
+  bool get isReadOnly => !canWrite;
+
+  String get roleBadge {
+    if (isTechnician) {
+      return hasFull ? 'TEKNISI (FULL)' : 'TEKNISI (WRITE)';
+    }
+    return 'MODE USER';
+  }
+}
+
+class WifiInterfaceInfo {
+  final String id;
+  final String name;
+  final String ssid;
+  final String password;
+  final String securityProfile;
+  final bool isRosV7Wifi;
+  final bool disabled;
+
+  WifiInterfaceInfo({
+    required this.id,
+    required this.name,
+    required this.ssid,
+    required this.password,
+    required this.securityProfile,
+    required this.isRosV7Wifi,
+    required this.disabled,
+  });
+}
+
+class ConnectedDevice {
+  final String macAddress;
+  final String ipAddress;
+  final String hostName;
+  final String source;
+  final bool isBlocked;
+
+  ConnectedDevice({
+    required this.macAddress,
+    required this.ipAddress,
+    required this.hostName,
+    required this.source,
+    required this.isBlocked,
+  });
+}
+
+class StaticHostDevice {
+  final String ipAddress;
+  final String macAddress;
+  final String interfaceName;
+  final String customerName;
+  final String maxLimit;
+  final String currentRate;
+  final bool isBlockedByIp;
+  final bool isBlockedByMac;
+  final bool isUnqueuedAnomaly;
+  final String? comment;
+
+  StaticHostDevice({
+    required this.ipAddress,
+    required this.macAddress,
+    required this.interfaceName,
+    required this.customerName,
+    required this.maxLimit,
+    required this.currentRate,
+    required this.isBlockedByIp,
+    required this.isBlockedByMac,
+    required this.isUnqueuedAnomaly,
+    this.comment,
+  });
+
+  bool get isBlocked => isBlockedByIp || isBlockedByMac;
+}
+
+// ------------------------------------------------------------------------------
+// BAGIAN : MODELS (lib/models/)
+// FOLDER : lib/models/
+// FILE   : lib/models/winbox_models.dart
+// ------------------------------------------------------------------------------
+// ==============================================================================
+// POCKET WINBOX - MASTER BLUEPRINT MENU (PARITAS 1:1 DENGAN WINBOX ASLI)
+// ==============================================================================
+import 'package:flutter/material.dart';
+
+class WinboxCategory {
+  final String title;
+  final IconData icon;
+  final List<WinboxSubMenu> subMenus;
+  const WinboxCategory(this.title, this.icon, this.subMenus);
+}
+
+class WinboxSubMenu {
+  final String title;
+  final String path;
+  final String primaryField;
+  final String? secondaryField;
+  final List<String> displayColumns;
+  const WinboxSubMenu(this.title, this.path, this.primaryField,
+      this.secondaryField,
+      [this.displayColumns = const []]);
+}
+
+class WinboxMenuItemReference {
+  final int categoryIndex;
+  final int subMenuIndex;
+  final WinboxCategory category;
+  final WinboxSubMenu subMenu;
+  const WinboxMenuItemReference({
+    required this.categoryIndex,
+    required this.subMenuIndex,
+    required this.category,
+    required this.subMenu,
+  });
+}
+
+WinboxMenuItemReference? findWinboxMenuByPath(String path) {
+  for (int c = 0; c < winboxCategories.length; c++) {
+    for (int s = 0; s < winboxCategories[c].subMenus.length; s++) {
+      if (winboxCategories[c].subMenus[s].path == path) {
+        return WinboxMenuItemReference(
+          categoryIndex: c,
+          subMenuIndex: s,
+          category: winboxCategories[c],
+          subMenu: winboxCategories[c].subMenus[s],
+        );
+      }
+    }
+  }
+  return null;
+}
+
+List<WinboxMenuItemReference> searchWinboxMenus(String query) {
+  final q = query.trim().toLowerCase();
+  final results = <WinboxMenuItemReference>[];
+  for (int c = 0; c < winboxCategories.length; c++) {
+    final cat = winboxCategories[c];
+    for (int s = 0; s < cat.subMenus.length; s++) {
+      final sub = cat.subMenus[s];
+      if (q.isEmpty ||
+          cat.title.toLowerCase().contains(q) ||
+          sub.title.toLowerCase().contains(q) ||
+          sub.path.toLowerCase().contains(q)) {
+        results.add(WinboxMenuItemReference(
+          categoryIndex: c,
+          subMenuIndex: s,
+          category: cat,
+          subMenu: sub,
+        ));
+      }
+    }
+  }
+  return results;
+}
+
+const List<WinboxCategory> winboxCategories = [
+  // ============ 1. QUICK SET (seperti Winbox) ============
+  WinboxCategory('Quick Set', Icons.tune_rounded, [
+    WinboxSubMenu('Quick Set', 'QUICK_SET', 'Quick Configuration', null),
+  ]),
+
+  // ============ 2. CAPsMAN ============
+  WinboxCategory('CAPsMAN', Icons.cell_tower_rounded, [
+    WinboxSubMenu('Manager', '/caps-man/manager', 'enabled', 'upgrade-policy',
+        ['enabled', 'upgrade-policy', 'certificate', 'ca-certificate']),
+    WinboxSubMenu('Configuration', '/caps-man/configuration', 'name', 'ssid',
+        ['name', 'ssid', 'country', 'security', 'datapath']),
+    WinboxSubMenu('Datapath', '/caps-man/datapath', 'name', 'bridge',
+        ['name', 'bridge', 'local-forwarding', 'client-to-client-forwarding', 'vlan-id']),
+    WinboxSubMenu('Security', '/caps-man/security', 'name', 'authentication-types',
+        ['name', 'authentication-types', 'encryption', 'group-encryption']),
+    WinboxSubMenu('Provisioning', '/caps-man/provisioning', 'radio-mac', 'master-configuration',
+        ['radio-mac', 'ip-address-ranges', 'master-configuration', 'slave-configurations', 'action']),
+    WinboxSubMenu('Access List', '/caps-man/access-list', 'mac-address', 'action',
+        ['mac-address', 'interface', 'signal-range', 'action', 'time']),
+    WinboxSubMenu('Interfaces', '/caps-man/interface', 'name', 'radio-mac',
+        ['name', 'radio-mac', 'current-state', 'channel', 'current-registered-clients']),
+    WinboxSubMenu('Registration Table', '/caps-man/registration-table', 'mac-address', 'interface',
+        ['mac-address', 'interface', 'ssid', 'tx-rate', 'rx-rate', 'uptime']),
+  ]),
+
+  // ============ 3. INTERFACES ============
+  WinboxCategory('Interfaces', Icons.lan_rounded, [
+    WinboxSubMenu('Interface List', '/interface', 'name', 'type',
+        ['name', 'type', 'actual-mtu', 'mac-address', 'running', 'disabled', 'rx-byte', 'tx-byte']),
+    WinboxSubMenu('Ethernet', '/interface/ethernet', 'name', 'mac-address',
+        ['name', 'mac-address', 'speed', 'full-duplex', 'auto-negotiation']),
+    WinboxSubMenu('VLAN', '/interface/vlan', 'name', 'vlan-id',
+        ['name', 'vlan-id', 'interface', 'mtu', 'use-service-tag']),
+    WinboxSubMenu('Bridge', '/interface/bridge', 'name', 'mac-address',
+        ['name', 'mac-address', 'mtu', 'fast-forward', 'vlan-filtering']),
+    WinboxSubMenu('Bonding', '/interface/bonding', 'name', 'mode',
+        ['name', 'slaves', 'mode', 'link-monitoring']),
+    WinboxSubMenu('VRRP', '/interface/vrrp', 'name', 'vrid',
+        ['name', 'interface', 'vrid', 'priority', 'interval']),
+    WinboxSubMenu('EoIP Tunnel', '/interface/eoip', 'name', 'remote-address',
+        ['name', 'remote-address', 'tunnel-id', 'mtu']),
+    WinboxSubMenu('GRE Tunnel', '/interface/gre', 'name', 'remote-address',
+        ['name', 'remote-address', 'dscp', 'mtu']),
+    WinboxSubMenu('IPIP Tunnel', '/interface/ipip', 'name', 'remote-address',
+        ['name', 'remote-address', 'dscp', 'mtu']),
+    WinboxSubMenu('L2TP Client', '/interface/l2tp-client', 'name', 'connect-to',
+        ['name', 'connect-to', 'user', 'profile']),
+    WinboxSubMenu('L2TP Server', '/interface/l2tp-server/server', 'enabled', 'default-profile',
+        ['enabled', 'default-profile', 'max-mtu', 'authentication']),
+    WinboxSubMenu('PPPoE Client', '/interface/pppoe-client', 'name', 'user',
+        ['name', 'interface', 'user', 'service-name']),
+    WinboxSubMenu('PPTP Client', '/interface/pptp-client', 'name', 'connect-to',
+        ['name', 'connect-to', 'user', 'profile']),
+    WinboxSubMenu('SSTP Client', '/interface/sstp-client', 'name', 'connect-to',
+        ['name', 'connect-to', 'user', 'profile']),
+    WinboxSubMenu('VXLAN', '/interface/vxlan', 'name', 'vni',
+        ['name', 'vni', 'port', 'mtu']),
+    WinboxSubMenu('VPLS', '/interface/vpls', 'name', 'remote-peer',
+        ['name', 'remote-peer', 'vpls-id', 'mac-address']),
+    WinboxSubMenu('WireGuard', '/interface/wireguard', 'name', 'listen-port',
+        ['name', 'listen-port', 'public-key', 'mtu']),
+    WinboxSubMenu('WireGuard Peers', '/interface/wireguard/peers', 'interface', 'public-key',
+        ['interface', 'public-key', 'allowed-address', 'endpoint-address']),
+    WinboxSubMenu('LTE', '/interface/lte', 'name', 'pin',
+        ['name', 'pin', 'network-mode', 'modem-signal']),
+    WinboxSubMenu('5G', '/interface/5g', 'name', 'pin',
+        ['name', 'pin', 'network-mode']),
+  ]),
+
+  // ============ 4. WIRELESS (BARU - kategori penuh seperti Winbox) ============
+  WinboxCategory('Wireless', Icons.wifi_tethering_rounded, [
+    WinboxSubMenu('Wireless Interfaces', '/interface/wireless', 'name', 'ssid',
+        ['name', 'ssid', 'band', 'frequency', 'mode', 'radio-name', 'rx-signal', 'disabled']),
+    WinboxSubMenu('Security Profiles', '/interface/wireless/security-profiles', 'name', 'mode',
+        ['name', 'mode', 'authentication-types', 'unicast-ciphers', 'group-ciphers']),
+    WinboxSubMenu('Access List', '/interface/wireless/access-list', 'mac-address', 'interface',
+        ['mac-address', 'interface', 'signal-range', 'authentication', 'forwarding']),
+    WinboxSubMenu('Connect List', '/interface/wireless/connect-list', 'interface', 'mac-address',
+        ['interface', 'mac-address', 'connect', 'security-profile']),
+    WinboxSubMenu('Registration Table', '/interface/wireless/registration-table', 'mac-address', 'interface',
+        ['mac-address', 'interface', 'ssid', 'tx-rate', 'rx-rate', 'uptime', 'signal-strength']),
+    WinboxSubMenu('Snooper (Scan AP)', '/interface/wireless/snooper', 'ssid', 'bssid',
+        ['ssid', 'bssid', 'channel', 'signal', 'security']),
+    WinboxSubMenu('Sniff Settings', '/interface/wireless/sniff', 'interface', 'channel-time',
+        ['interface', 'streaming-enabled', 'streaming-server', 'channel-time']),
+    WinboxSubMenu('CAP', '/interface/wireless/cap', 'enabled', 'caps-man-addresses',
+        ['enabled', 'interfaces', 'caps-man-addresses', 'certificate']),
+  ]),
+
+  // ============ 5. BRIDGE ============
+  WinboxCategory('Bridge', Icons.alt_route_rounded, [
+    WinboxSubMenu('Bridges', '/interface/bridge', 'name', 'mac-address',
+        ['name', 'mac-address', 'mtu', 'vlan-filtering', 'protocol-mode']),
+    WinboxSubMenu('Ports', '/interface/bridge/port', 'interface', 'bridge',
+        ['interface', 'bridge', 'priority', 'path-cost', 'pvid', 'edge']),
+    WinboxSubMenu('VLANs', '/interface/bridge/vlan', 'bridge', 'vlan-ids',
+        ['bridge', 'vlan-ids', 'tagged', 'untagged']),
+    WinboxSubMenu('Hosts', '/interface/bridge/host', 'mac-address', 'bridge',
+        ['mac-address', 'bridge', 'on-interface', 'age', 'local']),
+    WinboxSubMenu('Bridge ARP', '/interface/bridge/arp', 'address', 'mac-address',
+        ['address', 'mac-address', 'interface']),
+    WinboxSubMenu('Bridge Settings', '/interface/bridge/settings', 'use-ip-firewall', 'allow-fast-path',
+        ['use-ip-firewall', 'allow-fast-path']),
+  ]),
+
+  // ============ 6. PPP ============
+  WinboxCategory('PPP', Icons.people_outline_rounded, [
+    WinboxSubMenu('Profiles', '/ppp/profile', 'name', 'local-address',
+        ['name', 'local-address', 'remote-address', 'rate-limit', 'dns-server']),
+    WinboxSubMenu('Secrets', '/ppp/secret', 'name', 'profile',
+        ['name', 'service', 'profile', 'local-address', 'remote-address', 'last-logged-out']),
+    WinboxSubMenu('Active Connections', '/ppp/active', 'name', 'address',
+        ['name', 'service', 'caller-id', 'address', 'uptime']),
+    WinboxSubMenu('AAA Settings', '/ppp/aaa', 'use-radius', null,
+        ['use-radius', 'accounting', 'interim-update']),
+  ]),
+
+  // ============ 7. MESH (BARU) ============
+  WinboxCategory('Mesh', Icons.device_hub_rounded, [
+    WinboxSubMenu('Mesh Interfaces', '/mesh', 'name', 'mesh-id',
+        ['name', 'mesh-id', 'interface', 'metric', 'disabled']),
+    WinboxSubMenu('Mesh Portal', '/mesh/portal', 'name', 'bridge',
+        ['name', 'bridge', 'path-cost', 'disabled']),
+  ]),
+
+  // ============ 8. IP ============
+  WinboxCategory('IP', Icons.language_rounded, [
+    WinboxSubMenu('Addresses', '/ip/address', 'address', 'interface',
+        ['address', 'network', 'interface', 'actual-interface', 'disabled']),
+    WinboxSubMenu('ARP Table', '/ip/arp', 'address', 'mac-address',
+        ['address', 'mac-address', 'interface', 'published', 'complete']),
+    WinboxSubMenu('IP Pool', '/ip/pool', 'name', 'ranges', ['name', 'ranges', 'next-pool']),
+    WinboxSubMenu('DNS Settings', '/ip/dns', 'servers', 'dynamic-servers',
+        ['servers', 'dynamic-servers', 'allow-remote-requests', 'cache-size']),
+    WinboxSubMenu('DNS Static', '/ip/dns/static', 'name', 'address',
+        ['name', 'address', 'ttl', 'type']),
+    WinboxSubMenu('DHCP Client', '/ip/dhcp-client', 'interface', 'status',
+        ['interface', 'use-peer-dns', 'status', 'address', 'gateway']),
+    WinboxSubMenu('DHCP Relay', '/ip/dhcp-relay', 'name', 'interface',
+        ['name', 'interface', 'dhcp-server']),
+    WinboxSubMenu('DHCP Server', '/ip/dhcp-server', 'name', 'interface',
+        ['name', 'interface', 'lease-time', 'address-pool', 'disabled']),
+    WinboxSubMenu('DHCP Networks', '/ip/dhcp-server/network', 'address', 'gateway',
+        ['address', 'gateway', 'dns-server', 'domain']),
+    WinboxSubMenu('DHCP Leases', '/ip/dhcp-server/lease', 'address', 'host-name',
+        ['address', 'mac-address', 'host-name', 'server', 'status', 'expires-after']),
+    WinboxSubMenu('Hotspot Servers', '/ip/hotspot', 'name', 'interface',
+        ['name', 'interface', 'address-pool', 'profile']),
+    WinboxSubMenu('Hotspot Profiles', '/ip/hotspot/profile', 'name', 'hotspot-address',
+        ['name', 'hotspot-address', 'dns-name', 'html-directory']),
+    WinboxSubMenu('Hotspot User Profiles', '/ip/hotspot/user/profile', 'name', 'shared-users',
+        ['name', 'shared-users', 'rate-limit', 'transparent-proxy']),
+    WinboxSubMenu('Hotspot Walled Garden', '/ip/hotspot/walled-garden', 'dst-host', 'action',
+        ['dst-host', 'action', 'path']),
+    WinboxSubMenu('Hotspot Active', '/ip/hotspot/active', 'user', 'address',
+        ['user', 'address', 'mac-address', 'uptime', 'session-time-left']),
+    WinboxSubMenu('Hotspot Users', '/ip/hotspot/user', 'name', 'profile',
+        ['name', 'password', 'profile', 'uptime', 'bytes-in', 'bytes-out']),
+    WinboxSubMenu('Services', '/ip/service', 'name', 'port',
+        ['name', 'port', 'address', 'certificate', 'disabled']),
+    WinboxSubMenu('SSH', '/ip/ssh', 'forwarding-enabled', null,
+        ['forwarding-enabled', 'always-allow-password-login']),
+    WinboxSubMenu('SOCKS', '/ip/socks', 'enabled', 'port',
+        ['enabled', 'port', 'connection-idle-timeout']),
+    WinboxSubMenu('Web Proxy', '/ip/proxy', 'enabled', 'port',
+        ['enabled', 'port', 'cache-administrator', 'max-cache-size']),
+    WinboxSubMenu('UPnP', '/ip/upnp', 'enabled', null,
+        ['enabled', 'allow-disable-external-interface']),
+    WinboxSubMenu('SMB', '/ip/smb', 'enabled', 'domain', ['enabled', 'domain', 'comment']),
+    WinboxSubMenu('TFTP', '/ip/tftp', 'req-filename', 'real-filename',
+        ['req-filename', 'real-filename', 'allow']),
+    WinboxSubMenu('Cloud DDNS', '/ip/cloud', 'dns-name', 'status',
+        ['dns-name', 'public-address', 'status', 'update-time']),
+    WinboxSubMenu('Neighbors', '/ip/neighbor', 'identity', 'address',
+        ['interface', 'address', 'mac-address', 'identity', 'platform', 'version']),
+  ]),
+
+  // ============ 9. IPv6 ============
+  WinboxCategory('IPv6', Icons.public_rounded, [
+    WinboxSubMenu('Addresses', '/ipv6/address', 'address', 'interface',
+        ['address', 'from-pool', 'interface', 'actual-interface']),
+    WinboxSubMenu('IP Pools', '/ipv6/pool', 'name', 'prefix',
+        ['name', 'prefix', 'prefix-length']),
+    WinboxSubMenu('ND (Neighbor Disc.)', '/ipv6/nd', 'interface', 'ra-interval',
+        ['interface', 'ra-interval', 'ra-lifetime']),
+    WinboxSubMenu('DHCPv6 Client', '/ipv6/dhcp-client', 'interface', 'pool-name',
+        ['interface', 'status', 'pool-name', 'prefix']),
+    WinboxSubMenu('DHCPv6 Server', '/ipv6/dhcp-server', 'name', 'interface',
+        ['name', 'interface', 'address-pool']),
+    WinboxSubMenu('IPv6 Routes', '/ipv6/route', 'dst-address', 'gateway',
+        ['dst-address', 'gateway', 'distance', 'metric']),
+    WinboxSubMenu('Firewall Filter', '/ipv6/firewall/filter', 'chain', 'action',
+        ['chain', 'action', 'src-address', 'dst-address']),
+    WinboxSubMenu('Firewall NAT', '/ipv6/firewall/nat', 'chain', 'action',
+        ['chain', 'action', 'src-address', 'dst-address']),
+    WinboxSubMenu('Firewall Mangle', '/ipv6/firewall/mangle', 'chain', 'action',
+        ['chain', 'action', 'new-packet-mark']),
+  ]),
+
+  // ============ 10. MPLS (BARU) ============
+  WinboxCategory('MPLS', Icons.call_split_rounded, [
+    WinboxSubMenu('MPLS Settings', '/mpls', 'propagate-ttl', null,
+        ['propagate-ttl', 'dynamic-label-space']),
+    WinboxSubMenu('MPLS Interfaces', '/mpls/interface', 'interface', 'mpls-mtu',
+        ['interface', 'mpls-mtu', 'disabled']),
+    WinboxSubMenu('LDP', '/mpls/ldp', 'enabled', 'lsr-id',
+        ['enabled', 'lsr-id', 'transport-address', 'loop-detect']),
+    WinboxSubMenu('LDP Interfaces', '/mpls/ldp/interface', 'interface', 'hello-interval',
+        ['interface', 'hello-interval', 'hold-time', 'disabled']),
+    WinboxSubMenu('LDP Neighbors', '/mpls/ldp/neighbor', 'lsr-id', 'transport-address',
+        ['lsr-id', 'transport-address', 'state', 'uptime']),
+  ]),
+
+  // ============ 11. ROUTING ============
+  WinboxCategory('Routing', Icons.directions_rounded, [
+    WinboxSubMenu('Static Routes', '/ip/route', 'dst-address', 'gateway',
+        ['dst-address', 'gateway', 'distance', 'scope', 'pref-src', 'active']),
+    WinboxSubMenu('OSPF Instances', '/routing/ospf/instance', 'name', 'router-id',
+        ['name', 'router-id', 'version']),
+    WinboxSubMenu('OSPF Areas', '/routing/ospf/area', 'name', 'instance',
+        ['name', 'instance', 'area-id']),
+    WinboxSubMenu('OSPF Interfaces', '/routing/ospf/interface-template', 'area', 'interfaces',
+        ['area', 'interfaces', 'cost', 'priority']),
+    WinboxSubMenu('OSPF Neighbors', '/routing/ospf/neighbor', 'router-id', 'address',
+        ['router-id', 'address', 'state', 'priority']),
+    WinboxSubMenu('BGP Connections', '/routing/bgp/connection', 'name', 'remote.address',
+        ['name', 'remote.address', 'remote.as', 'local.role']),
+    WinboxSubMenu('BGP Sessions', '/routing/bgp/session', 'name', 'remote.address',
+        ['name', 'remote.address', 'state', 'uptime']),
+    WinboxSubMenu('RIP Instances', '/routing/rip/instance', 'name', 'version',
+        ['name', 'version']),
+    WinboxSubMenu('BFD Configuration', '/routing/bfd/configuration', 'name', null,
+        ['name', 'min-rx', 'min-tx']),
+    WinboxSubMenu('Routing Filters', '/routing/filter/rule', 'chain', 'rule',
+        ['chain', 'rule']),
+    WinboxSubMenu('VRF Tables', '/ip/route/vrf', 'name', 'interfaces',
+        ['name', 'interfaces', 'route-distinguisher']),
+  ]),
+
+  // ============ 12. FIREWALL ============
+  WinboxCategory('Firewall', Icons.security_rounded, [
+    WinboxSubMenu('Filter Rules', '/ip/firewall/filter', 'chain', 'action',
+        ['chain', 'action', 'src-address', 'dst-address', 'protocol', 'dst-port', 'comment']),
+    WinboxSubMenu('NAT Rules', '/ip/firewall/nat', 'chain', 'action',
+        ['chain', 'action', 'to-addresses', 'to-ports', 'out-interface', 'comment']),
+    WinboxSubMenu('Mangle Rules', '/ip/firewall/mangle', 'chain', 'action',
+        ['chain', 'action', 'new-packet-mark', 'new-connection-mark', 'passthrough']),
+    WinboxSubMenu('Raw Rules', '/ip/firewall/raw', 'chain', 'action',
+        ['chain', 'action', 'src-address', 'dst-address', 'comment']),
+    WinboxSubMenu('Connections', '/ip/firewall/connection', 'src-address', 'dst-address',
+        ['protocol', 'src-address', 'dst-address', 'reply-src-address', 'tcp-state']),
+    WinboxSubMenu('Address Lists', '/ip/firewall/address-list', 'list', 'address',
+        ['list', 'address', 'timeout', 'comment']),
+    WinboxSubMenu('Service Ports', '/ip/firewall/service-port', 'name', 'ports',
+        ['name', 'ports', 'disabled']),
+  ]),
+
+  // ============ 13. SYSTEM ============
+  WinboxCategory('System', Icons.dns_rounded, [
+    WinboxSubMenu('System Identity', '/system/identity', 'name', null, ['name']),
+    WinboxSubMenu('Resources', '/system/resource', 'board-name', 'version',
+        ['board-name', 'version', 'cpu-load', 'free-memory', 'total-memory', 'uptime']),
+    WinboxSubMenu('Health', '/system/health', 'name', 'value', ['name', 'value', 'type']),
+    WinboxSubMenu('RouterBOARD', '/system/routerboard', 'model', 'current-firmware',
+        ['routerboard', 'model', 'serial-number', 'current-firmware', 'upgrade-firmware']),
+    WinboxSubMenu('Backups', '/system/backup', 'name', 'size',
+        ['name', 'size', 'creation-time']),
+    WinboxSubMenu('Users', '/user', 'name', 'group', ['name', 'group', 'last-logged-in']),
+    WinboxSubMenu('User Groups', '/user/group', 'name', 'policy', ['name', 'policy']),
+    WinboxSubMenu('User SSH Keys', '/user/ssh-keys', 'user', 'bits',
+        ['user', 'bits', 'key-owner']),
+    WinboxSubMenu('Active Users', '/user/active', 'name', 'via',
+        ['name', 'when', 'via', 'address']),
+    WinboxSubMenu('Certificates', '/certificate', 'name', 'common-name',
+        ['name', 'common-name', 'fingerprint', 'invalid-after']),
+    WinboxSubMenu('Clock', '/system/clock', 'time', 'date',
+        ['time', 'date', 'time-zone-name']),
+    WinboxSubMenu('NTP Client', '/system/ntp/client', 'enabled', 'status',
+        ['enabled', 'mode', 'server-dns-names', 'status']),
+    WinboxSubMenu('NTP Server', '/system/ntp/server', 'enabled', 'mode',
+        ['enabled', 'mode', 'multicast']),
+    WinboxSubMenu('Scheduler', '/system/scheduler', 'name', 'interval',
+        ['name', 'start-date', 'start-time', 'interval', 'next-run']),
+    WinboxSubMenu('Scripts', '/system/script', 'name', 'owner',
+        ['name', 'owner', 'last-started', 'run-count']),
+    WinboxSubMenu('Licenses', '/system/license', 'software-id', 'nlevel',
+        ['software-id', 'nlevel', 'features']),
+    WinboxSubMenu('Packages', '/system/package', 'name', 'version',
+        ['name', 'version', 'build-time']),
+    WinboxSubMenu('Make Supout.rif', 'SYSTEM_SUPOUT', 'Buat file dukungan diagnostik', null),
+    WinboxSubMenu('Reboot Router', 'SYSTEM_REBOOT', 'Reboot Perangkat MikroTik', null),
+    WinboxSubMenu('Shutdown Router', 'SYSTEM_SHUTDOWN', 'Matikan Router MikroTik', null),
+  ]),
+
+  // ============ 14. QUEUES ============
+  WinboxCategory('Queues', Icons.network_check_rounded, [
+    WinboxSubMenu('Simple Queues', '/queue/simple', 'name', 'max-limit',
+        ['name', 'target', 'max-limit', 'bytes', 'total-bytes', 'comment']),
+    WinboxSubMenu('Queue Tree', '/queue/tree', 'name', 'parent',
+        ['name', 'parent', 'packet-mark', 'max-limit', 'priority']),
+    WinboxSubMenu('Queue Types', '/queue/type', 'name', 'kind', ['name', 'kind']),
+    WinboxSubMenu('Interface Queues', '/queue/interface', 'interface', 'queue',
+        ['interface', 'queue']),
+  ]),
+
+  // ============ 15. DOT1X (BARU) ============
+  WinboxCategory('Dot1X', Icons.vpn_key_rounded, [
+    WinboxSubMenu('Dot1X Client', '/dot1x/client', 'interface', 'status',
+        ['interface', 'status', 'controlled-port']),
+    WinboxSubMenu('Dot1X Server', '/dot1x/server', 'interface', 'auth-types',
+        ['interface', 'auth-types', 'guest-if-disabled']),
+  ]),
+
+  // ============ 16. FILES (BARU - top-level seperti Winbox) ============
+  WinboxCategory('Files', Icons.folder_rounded, [
+    WinboxSubMenu('Files', '/file', 'name', 'size',
+        ['name', 'type', 'size', 'creation-time']),
+  ]),
+
+  // ============ 17. LOG (BARU - top-level seperti Winbox) ============
+  WinboxCategory('Log', Icons.receipt_long_rounded, [
+    WinboxSubMenu('System Logs', '/log', 'time', 'message',
+        ['time', 'topics', 'message']),
+    WinboxSubMenu('Logging Rules', '/system/logging', 'topics', 'action',
+        ['topics', 'action', 'prefix']),
+    WinboxSubMenu('Logging Actions', '/system/logging/action', 'name', 'target',
+        ['name', 'target', 'remember']),
+  ]),
+
+  // ============ 18. RADIUS (BARU - top-level seperti Winbox) ============
+  WinboxCategory('RADIUS', Icons.account_tree_rounded, [
+    WinboxSubMenu('RADIUS Clients', '/radius', 'service', 'address',
+        ['service', 'address', 'secret', 'timeout']),
+    WinboxSubMenu('Incoming', '/radius/incoming', 'accept', null, ['accept']),
+  ]),
+
+  // ============ 19. IPSEC ============
+  WinboxCategory('IPsec', Icons.vpn_lock_rounded, [
+    WinboxSubMenu('Peers', '/ip/ipsec/peer', 'name', 'address',
+        ['name', 'address', 'profile', 'exchange-mode']),
+    WinboxSubMenu('Identities', '/ip/ipsec/identity', 'peer', 'auth-method',
+        ['peer', 'auth-method', 'secret', 'my-id']),
+    WinboxSubMenu('Proposals', '/ip/ipsec/proposal', 'name', 'auth-algorithms',
+        ['name', 'auth-algorithms', 'enc-algorithms', 'lifetime']),
+    WinboxSubMenu('Settings', '/ip/ipsec/settings', 'accounting', null,
+        ['accounting', 'interim-update']),
+    WinboxSubMenu('Policies', '/ip/ipsec/policy', 'src-address', 'dst-address',
+        ['src-address', 'dst-address', 'action', 'proposal']),
+    WinboxSubMenu('Active Connections', '/ip/ipsec/active-peers', 'address', 'state',
+        ['address', 'side', 'uptime', 'state']),
+    WinboxSubMenu('Mode Configs', '/ip/ipsec/mode-config', 'name', 'address-pool',
+        ['name', 'address-pool', 'address', 'system-dns']),
+  ]),
+
+  // ============ 20. TOOLS ============
+  WinboxCategory('Tools', Icons.terminal_rounded, [
+    WinboxSubMenu('New Terminal (CLI)', 'CLI_TOOL', 'Command Line Runner', null),
+    WinboxSubMenu('Ping Diagnostic', 'PING_TOOL', 'Ping ICMP Diagnostic', null),
+    WinboxSubMenu('Traceroute', 'TRACEROUTE_TOOL', 'Traceroute Network Path', null),
+    WinboxSubMenu('Bandwidth Test', '/tool/bandwidth-test', 'direction', 'protocol',
+        ['direction', 'protocol']),
+    WinboxSubMenu('Torch (Sniffer)', '/tool/torch', 'interface', 'protocol',
+        ['interface', 'protocol', 'src-address', 'dst-address']),
+    WinboxSubMenu('Netwatch', '/tool/netwatch', 'host', 'status',
+        ['host', 'interval', 'timeout', 'status']),
+    WinboxSubMenu('Packet Sniffer', '/tool/sniffer', 'streaming-server', 'file-name',
+        ['streaming-server', 'file-name', 'file-limit']),
+    WinboxSubMenu('Traffic Flow', '/tool/traffic-flow', 'enabled', 'interfaces',
+        ['enabled', 'interfaces', 'cache-entries']),
+    WinboxSubMenu('MAC Ping', '/tool/mac-ping', 'mac-address', 'interface',
+        ['mac-address', 'interface']),
+    WinboxSubMenu('MAC Telnet', '/tool/mac-telnet', 'mac-address', null,
+        ['mac-address', 'interface']),
+    WinboxSubMenu('MAC Winbox Server', '/tool/mac-server/mac-winbox', 'interface', null,
+        ['interface']),
+    WinboxSubMenu('Graphing', '/tool/graphing', 'store-every', null, ['store-every']),
+    WinboxSubMenu('Wake on LAN', '/tool/wol', 'mac', 'interface', ['mac', 'interface']),
+    WinboxSubMenu('Watchdog', '/system/watchdog', 'watch-address', 'watchdog-timer',
+        ['watch-address', 'watchdog-timer', 'ping-timeout']),
+    WinboxSubMenu('User Manager', '/tool/user-manager', 'customer', null,
+        ['customer', 'user', 'router']),
+    WinboxSubMenu('Email Settings', '/tool/e-mail', 'server', 'from',
+        ['server', 'port', 'user', 'from']),
+    WinboxSubMenu('CPU Profile', 'PROFILE_TOOL', 'CPU Usage Per Process', null),
+  ]),
+
+  // ============ 21. DUDE (BARU) ============
+  WinboxCategory('Dude', Icons.insights_rounded, [
+    WinboxSubMenu('Dude Settings', '/dude', 'enabled', 'status',
+        ['enabled', 'status']),
+    WinboxSubMenu('Devices', '/dude/device', 'name', 'address',
+        ['name', 'address', 'type', 'status', 'down-count']),
+    WinboxSubMenu('Maps', '/dude/map', 'name', 'parent', ['name', 'parent', 'background']),
+    WinboxSubMenu('Notifications', '/dude/notification', 'name', 'type',
+        ['name', 'type', 'tool']),
+  ]),
+
+  // ============ 22. HARDWARE & IOT ============
+  WinboxCategory('Hardware & IoT', Icons.memory_rounded, [
+    WinboxSubMenu('Serial Ports', '/port', 'name', 'device',
+        ['name', 'device', 'baud-rate', 'data-bits', 'parity', 'stop-bits']),
+    WinboxSubMenu('GPS Tracking', '/system/gps', 'port', null,
+        ['port', 'baud-rate', 'polling-interval']),
+    WinboxSubMenu('LCD Screen', '/system/lcd', 'enabled', 'port',
+        ['enabled', 'port', 'contrast']),
+    WinboxSubMenu('UPS Monitor', '/system/ups', 'name', 'port',
+        ['name', 'port', 'offline-time', 'min-valid-voltage']),
+    WinboxSubMenu('LED Settings', '/system/leds', 'leds', 'interface',
+        ['leds', 'interface', 'type']),
+  ]),
+
+  // ============ 23. SWITCH CHIP ============
+  WinboxCategory('Switch Chip', Icons.switch_left_rounded, [
+    WinboxSubMenu('Switch Ports', '/interface/ethernet/switch/port', 'name', 'switch',
+        ['name', 'switch', 'vlan-mode', 'vlan-header', 'default-vlan-id']),
+    WinboxSubMenu('Switch VLANs', '/interface/ethernet/switch/vlan', 'switch', 'ports',
+        ['switch', 'ports', 'vlan-id']),
+    WinboxSubMenu('Hardware ACLs', '/interface/ethernet/switch/rule', 'switch', 'action',
+        ['switch', 'src-mac-address', 'dst-mac-address', 'action']),
+  ]),
+
+  // ============ 24. V7 & NEXT-GEN ============
+  WinboxCategory('v7 & Next-Gen', Icons.auto_awesome_rounded, [
+    WinboxSubMenu('Containers (Docker)', '/container', 'name', 'status',
+        ['name', 'tag', 'image', 'status', 'mounts']),
+    WinboxSubMenu('Container Mounts', '/container/mounts', 'name', 'src',
+        ['name', 'src', 'dst', 'mode']),
+    WinboxSubMenu('Container Configs', '/container/configs', 'name', 'type',
+        ['name', 'type', 'value']),
+    WinboxSubMenu('Modern WiFi (AX/Wave2)', '/interface/wifi', 'name', 'ssid',
+        ['name', 'ssid', 'channel', 'security', 'configuration']),
+    WinboxSubMenu('WiFi Security', '/interface/wifi/security', 'name', 'authentication-types',
+        ['name', 'passphrase', 'authentication-types']),
+    WinboxSubMenu('WiFi Configs', '/interface/wifi/configuration', 'name', 'ssid',
+        ['name', 'ssid', 'country', 'dtim-interval']),
+    WinboxSubMenu('ZeroTier', '/interface/zerotier', 'name', 'identity',
+        ['name', 'identity', 'comment']),
+    WinboxSubMenu('BGP Templates', '/routing/bgp/template', 'name', 'address-family',
+        ['name', 'address-family', 'as', 'role']),
+  ]),
+
+  // ============ 25. ISP & INTEGRATIONS ============
+  WinboxCategory('ISP & Integrations', Icons.hub_rounded, [
+    WinboxSubMenu('SNMP Agent', '/snmp', 'enabled', 'contact',
+        ['enabled', 'contact', 'location', 'trap-targets']),
+    WinboxSubMenu('SNMP Communities', '/snmp/community', 'name', 'addresses',
+        ['name', 'addresses', 'read-access', 'write-access', 'authentication-password']),
+    WinboxSubMenu('IGMP Proxy', '/routing/igmp-proxy', 'name', 'upstream-network',
+        ['name', 'interface', 'upstream-network', 'alternative-subnets']),
+    WinboxSubMenu('IP Accounting', '/ip/accounting', 'enabled', 'threshold',
+        ['enabled', 'threshold', 'accounting-local-networks']),
+    WinboxSubMenu('Bandwidth Server', '/tool/bandwidth-server', 'enabled', 'authenticate',
+        ['enabled', 'authenticate', 'max-rx-speed', 'max-tx-speed']),
+    WinboxSubMenu('RoMon Server', '/tool/mac-server/romon', 'enabled', null, ['enabled']),
+  ]),
+];
+
+// ##############################################################################
+// BAGIAN 3: SERVICES (lib/services/)
+// ##############################################################################
+
+// ------------------------------------------------------------------------------
+// BAGIAN : SERVICES (lib/services/)
+// FOLDER : lib/services/
+// FILE   : lib/services/mikrotik_auto_discovery.dart
+// ------------------------------------------------------------------------------
+import 'dart:async';
+import 'dart:io';
+import 'package:network_info_plus/network_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+/// Hasil deteksi router MikroTik pada jaringan lokal
+class MikrotikDiscoveryResult {
+  /// Alamat IP Gateway / Router MikroTik (misal: 192.168.88.1 atau 192.168.1.1)
+  final String gatewayIp;
+
+  /// Port API terdeteksi yang siap digunakan untuk koneksi (prioritas: 8728 -> 8777 -> 80)
+  final int apiPort;
+
+  /// Daftar port signature MikroTik yang terbuka
+  final List<int> openPorts;
+
+  /// Indikator apakah port Winbox (8291) terbuka
+  final bool hasWinbox;
+
+  /// Nama SSID Wi-Fi aktif (jika diizinkan sistem)
+  final String? wifiSsid;
+
+  const MikrotikDiscoveryResult({
+    required this.gatewayIp,
+    required this.apiPort,
+    required this.openPorts,
+    required this.hasWinbox,
+    this.wifiSsid,
+  });
+
+  @override
+  String toString() =>
+      'MikrotikDiscoveryResult(gateway: $gatewayIp, apiPort: $apiPort, openPorts: $openPorts, winbox: $hasWinbox, ssid: $wifiSsid)';
+}
+
+/// Zero-Touch Auto-Discovery Engine untuk MikroTik Router
+class MikrotikAutoDiscovery {
+  final NetworkInfo _networkInfo;
+
+  MikrotikAutoDiscovery({NetworkInfo? networkInfo})
+      : _networkInfo = networkInfo ?? NetworkInfo();
+
+  /// Port signature MikroTik untuk validasi keberadaan router:
+  /// - 8291: Winbox / MAC-Telnet (Indikator terkuat perangkat MikroTik)
+  /// - 8728: RouterOS API biner standar
+  /// - 8777: Port API alternatif umum yang sering disetel oleh ISP
+  /// - 80: WebFig HTTP (Web interface RouterOS)
+  static const int portWinbox = 8291;
+  static const int portApiDefault = 8728;
+  static const int portApiCustom = 8777;
+  static const int portWebFig = 80;
+
+  static const List<int> probePorts = [
+    portWinbox,
+    portApiDefault,
+    portApiCustom,
+    portWebFig,
+  ];
+
+  /// Menjalankan pemindaian Zero-Touch di latar belakang.
+  /// Mengembalikan [MikrotikDiscoveryResult] jika router MikroTik terdeteksi,
+  /// atau `null` jika tidak terhubung Wi-Fi, port tertutup, atau terjadi kegagalan.
+  Future<MikrotikDiscoveryResult?> discoverGatewayRouter({
+    Duration timeoutPerPort = const Duration(seconds: 2),
+  }) async {
+    try {
+      // 1. Dapatkan IP Gateway Wi-Fi
+      final gatewayIp = await _resolveGatewayIp();
+      if (gatewayIp == null || gatewayIp.isEmpty || gatewayIp == '0.0.0.0') {
+        return null;
+      }
+
+      // Ambil SSID Wi-Fi opsional
+      String? ssid;
+      try {
+        ssid = await _networkInfo.getWifiName();
+        if (ssid != null) {
+          // Bersihkan tanda petik ganda yang sering disertakan oleh iOS/Android
+          ssid = ssid.replaceAll('"', '').trim();
+          if (ssid.isEmpty) ssid = null;
+        }
+      } catch (_) {}
+
+      // 2. Lakukan probe TCP port signature secara paralel dan non-blocking
+      final portFutures = probePorts.map((port) => _probePort(gatewayIp, port, timeoutPerPort));
+      final probeResults = await Future.wait(portFutures);
+
+      final openPorts = <int>[];
+      for (final res in probeResults) {
+        if (res.isOpen) {
+          openPorts.add(res.port);
+        }
+      }
+
+      final hasWinbox = openPorts.contains(portWinbox);
+      final hasApiDefault = openPorts.contains(portApiDefault);
+      final hasApiCustom = openPorts.contains(portApiCustom);
+
+      // 3. Evaluasi Signature MikroTik:
+      // Harus memiliki Port 8291 (Winbox) ATAU salah satu port API (8728 / 8777)
+      if (hasWinbox || hasApiDefault || hasApiCustom) {
+        // Tentukan port API terbaik untuk form login
+        final chosenApiPort = hasApiDefault
+            ? portApiDefault
+            : (hasApiCustom ? portApiCustom : (openPorts.contains(portWebFig) ? portWebFig : portApiDefault));
+
+        return MikrotikDiscoveryResult(
+          gatewayIp: gatewayIp,
+          apiPort: chosenApiPort,
+          openPorts: openPorts,
+          hasWinbox: hasWinbox,
+          wifiSsid: ssid,
+        );
+      }
+
+      return null;
+    } catch (_) {
+      // Silent fail tanpa mengganggu pengguna
+      return null;
+    }
+  }
+
+  /// Meminta izin lokasi di Android (diperlukan untuk membaca info Wi-Fi pada Android 10+)
+  Future<bool> _requestLocationPermissionIfNeeded() async {
+    try {
+      if (Platform.isAndroid) {
+        var status = await Permission.locationWhenInUse.status;
+        if (!status.isGranted) {
+          status = await Permission.locationWhenInUse.request();
+        }
+        return status.isGranted;
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  /// Menyelesaikan IP Gateway melalui network_info_plus dengan fallback ke NetworkInterface lokal
+  Future<String?> _resolveGatewayIp() async {
+    // Coba minta izin lokasi terlebih dahulu jika di Android
+    await _requestLocationPermissionIfNeeded();
+
+    String? gateway;
+    try {
+      gateway = await _networkInfo.getWifiGatewayIP();
+      if (gateway != null && gateway.trim().isNotEmpty && gateway != '0.0.0.0') {
+        return gateway.trim();
+      }
+    } catch (_) {}
+
+    // Fallback: Analisis alamat IP interface lokal jika network_info_plus gagal mendapatkan gateway
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+
+      for (final iface in interfaces) {
+        final nameLower = iface.name.toLowerCase();
+        // Hanya cek interface yang berasosiasi dengan Wi-Fi / WLAN
+        if (nameLower.contains('wlan') || nameLower.contains('wi-fi') || nameLower.contains('en0')) {
+          for (final addr in iface.addresses) {
+            final ip = addr.address;
+            if (ip == '127.0.0.1' || ip.startsWith('169.254.')) continue;
+            final parts = ip.split('.');
+            if (parts.length == 4) {
+              return '${parts[0]}.${parts[1]}.${parts[2]}.1';
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  /// Probe satu port TCP dengan batas timeout ketat (2 detik).
+  /// Menangani SocketException dan TimeoutException secara aman.
+  Future<_PortProbeResult> _probePort(String host, int port, Duration timeout) async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(host, port, timeout: timeout);
+      socket.destroy();
+      return _PortProbeResult(port: port, isOpen: true);
+    } catch (_) {
+      return _PortProbeResult(port: port, isOpen: false);
+    } finally {
+      try {
+        socket?.destroy();
+      } catch (_) {}
+    }
+  }
+}
+
+class _PortProbeResult {
+  final int port;
+  final bool isOpen;
+  const _PortProbeResult({required this.port, required this.isOpen});
+}
+
+
+// ------------------------------------------------------------------------------
+// BAGIAN : SERVICES (lib/services/)
+// FOLDER : lib/services/
+// FILE   : lib/services/mikrotik_service.dart
+// ------------------------------------------------------------------------------
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import '../models/router_models.dart';
+
+class MikroTikService {
+  final RouterProfile profile;
+  _RouterOsBinaryClient? _persistentBinaryClient;
+  Future<void> _commandQueue = Future.value();
+  bool _isDisposed = false;
+
+  final _connectionStateController = StreamController<bool>.broadcast();
+  Stream<bool> get connectionStateStream => _connectionStateController.stream;
+  bool _lastKnownConnected = true;
+  bool get isConnected => _lastKnownConnected;
+
+  void _notifyConnectionState(bool connected) {
+    if (_lastKnownConnected != connected) {
+      _lastKnownConnected = connected;
+      if (!_connectionStateController.isClosed) {
+        _connectionStateController.add(connected);
+      }
+    }
+  }
+
+  MikroTikService(this.profile);
+
+  /// Menutup koneksi persistent socket saat keluar atau ganti router
+  Future<void> dispose() async {
+    _isDisposed = true;
+    await _persistentBinaryClient?.close();
+    _persistentBinaryClient = null;
+    if (!_connectionStateController.isClosed) {
+      await _connectionStateController.close();
+    }
+  }
+
+  /// Mengecek hak akses user dari /user dan /user/group di MikroTik secara serentak
+  Future<UserRoleInfo> detectUserRole() async {
+    final results = await Future.wait([
+      _safeRunCommand('/user/print'),
+      _safeRunCommand('/user/group/print'),
+    ]);
+    final users = results[0];
+    final groups = results[1];
+
+    final currentUser = users.firstWhere(
+      (u) => u['name'] == profile.username,
+      orElse: () => {'name': profile.username, 'group': 'write'},
+    );
+
+    final groupName = currentUser['group'] ?? 'read';
+    final groupData = groups.firstWhere(
+      (g) => g['name'] == groupName,
+      orElse: () {
+        final gLow = groupName.toLowerCase();
+        if (gLow == 'full') return {'name': groupName, 'policy': 'full,write,read,reboot,policy,test'};
+        if (gLow == 'write') return {'name': groupName, 'policy': 'write,read,reboot,test'};
+        return {'name': groupName, 'policy': 'read'};
+      },
+    );
+
+    final policyRaw = groupData['policy'] ?? '';
+    final policies = policyRaw
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    if (policies.isEmpty) {
+      final gLow = groupName.toLowerCase();
+      if (gLow == 'full') {
+        policies.addAll(['full', 'write', 'read', 'reboot', 'policy', 'test']);
+      } else if (gLow == 'write') {
+        policies.addAll(['write', 'read', 'reboot', 'test']);
+      } else {
+        policies.add('read');
+      }
+    }
+
+    final hasFull = policies.contains('full');
+    final canWrite = policies.contains('write') || hasFull;
+    final canReboot = policies.contains('reboot') || hasFull;
+    final canManageUsers = policies.contains('policy') || hasFull;
+    final canRunTest = policies.contains('test') || hasFull;
+
+    // Menentukan AppRole (User vs Teknisi) sesuai spesifikasi 2 Role
+    final gNameLow = groupName.toLowerCase();
+    AppRole role;
+
+    if (profile.rolePreference == LoginRolePreference.user) {
+      role = AppRole.user;
+    } else if (gNameLow.contains('user') || gNameLow.contains('pelanggan') || gNameLow.contains('customer')) {
+      role = AppRole.user;
+    } else if (!canWrite) {
+      // Jika akun router tidak memiliki izin write/full, amankan ke mode User (Read-Only)
+      role = AppRole.user;
+    } else {
+      // Memiliki izin write/full dan tidak memilih mode user
+      role = AppRole.technician;
+    }
+
+    return UserRoleInfo(
+      username: profile.username,
+      groupName: groupName,
+      policies: policies,
+      role: role,
+      canWrite: canWrite,
+      hasFull: hasFull,
+      canReboot: canReboot,
+      canManageUsers: canManageUsers,
+      canRunTest: canRunTest,
+    );
+  }
+
+  /// Pemeriksaan kilat apakah koneksi router aktif dan responsif (1:1 realtime heartbeat)
+  Future<bool> checkConnection() async {
+    try {
+      final res = await runCommand('/system/identity/print');
+      final ok = res.isNotEmpty;
+      _notifyConnectionState(ok);
+      return ok;
+    } catch (_) {
+      _notifyConnectionState(false);
+      return false;
+    }
+  }
+
+  /// Mengambil ringkasan data dashboard router secara serentak (Parallel Future.wait)
+  Future<Map<String, dynamic>> fetchDashboardSummary() async {
+    final roleFuture = detectUserRole();
+    final identityFuture = _safeRunCommand('/system/identity/print');
+    final resourceFuture = _safeRunCommand('/system/resource/print');
+    final ipFuture = _safeRunCommand('/ip/address/print');
+    final ifaceFuture = _safeRunCommand('/interface/print');
+    final queuesFuture = _safeRunCommand('/queue/simple/print');
+    final wifiFuture = fetchWifiInterfaces();
+    final devicesFuture = fetchConnectedDevices();
+    final staticDevicesFuture = fetchStaticDevices();
+
+    final results = await Future.wait([
+      roleFuture,
+      identityFuture,
+      resourceFuture,
+      ipFuture,
+      ifaceFuture,
+      queuesFuture,
+      wifiFuture,
+      devicesFuture,
+      staticDevicesFuture,
+    ]);
+
+    final role = results[0] as UserRoleInfo;
+    final identityList = results[1] as List<Map<String, String>>;
+    final resourceList = results[2] as List<Map<String, String>>;
+    final ipList = results[3] as List<Map<String, String>>;
+    final ifaceList = results[4] as List<Map<String, String>>;
+    final queuesList = results[5] as List<Map<String, String>>;
+    final wifiList = results[6] as List<WifiInterfaceInfo>;
+    final devicesList = results[7] as List<ConnectedDevice>;
+    final staticDevices = results[8] as List<StaticHostDevice>;
+
+    return {
+      'role': role,
+      'identity': identityList.isNotEmpty ? (identityList.first['name'] ?? 'MikroTik') : 'MikroTik',
+      'resource': resourceList.isNotEmpty ? resourceList.first : <String, String>{},
+      'ips': ipList,
+      'interfaces': ifaceList,
+      'queues': queuesList,
+      'wifis': wifiList,
+      'devices': devicesList,
+      'staticDevices': staticDevices,
+    };
+  }
+
+  /// Membaca interface Wi-Fi (mendukung RouterOS v7 /interface/wifi & v6 /interface/wireless)
+  Future<List<WifiInterfaceInfo>> fetchWifiInterfaces() async {
+    final result = <WifiInterfaceInfo>[];
+
+    // 1. Cek RouterOS v7 (/interface/wifi)
+    final v7Wifis = await _safeRunCommand('/interface/wifi/print');
+    if (v7Wifis.isNotEmpty) {
+      for (final w in v7Wifis) {
+        result.add(WifiInterfaceInfo(
+          id: w['.id'] ?? '',
+          name: w['name'] ?? 'wifi1',
+          ssid: w['configuration.ssid'] ?? w['ssid'] ?? '(Belum diset)',
+          password: w['security.passphrase'] ?? '',
+          securityProfile: w['security'] ?? 'default',
+          isRosV7Wifi: true,
+          disabled: w['disabled'] == 'true',
+        ));
+      }
+      return result;
+    }
+
+    // 2. Cek RouterOS v6 (/interface/wireless)
+    final v6Wifis = await _safeRunCommand('/interface/wireless/print');
+    final secProfiles = await _safeRunCommand('/interface/wireless/security-profiles/print');
+
+    for (final w in v6Wifis) {
+      final secName = w['security-profile'] ?? 'default';
+      final matchedSec = secProfiles.firstWhere(
+        (s) => s['name'] == secName,
+        orElse: () => <String, String>{},
+      );
+
+      result.add(WifiInterfaceInfo(
+        id: w['.id'] ?? '',
+        name: w['name'] ?? 'wlan1',
+        ssid: w['ssid'] ?? 'MikroTik',
+        password: matchedSec['wpa2-pre-shared-key'] ?? matchedSec['wpa-pre-shared-key'] ?? '',
+        securityProfile: secName,
+        isRosV7Wifi: false,
+        disabled: w['disabled'] == 'true',
+      ));
+    }
+
+    return result;
+  }
+
+  /// Mengubah SSID dan Password Wi-Fi
+  Future<void> updateWifiConfig({
+    required WifiInterfaceInfo wifi,
+    required String newSsid,
+    required String newPassword,
+  }) async {
+    if (newPassword.isNotEmpty && newPassword.length < 8) {
+      throw Exception('Password Wi-Fi minimal 8 karakter.');
+    }
+
+    if (wifi.isRosV7Wifi) {
+      final params = <String, String>{
+        '.id': wifi.id,
+        'configuration.ssid': newSsid,
+      };
+      if (newPassword.isNotEmpty) {
+        params['security.passphrase'] = newPassword;
+        params['security.authentication-types'] = 'wpa2-psk,wpa3-psk';
+      }
+      await runCommand('/interface/wifi/set', params: params);
+    } else {
+      await runCommand('/interface/wireless/set', params: {
+        '.id': wifi.id,
+        'ssid': newSsid,
+      });
+
+      if (newPassword.isNotEmpty) {
+        final secProfiles = await runCommand('/interface/wireless/security-profiles/print');
+        final targetSec = secProfiles.firstWhere(
+          (s) => s['name'] == wifi.securityProfile,
+          orElse: () => <String, String>{},
+        );
+        if (targetSec['.id'] != null) {
+          await runCommand('/interface/wireless/security-profiles/set', params: {
+            '.id': targetSec['.id']!,
+            'mode': 'dynamic-keys',
+            'authentication-types': 'wpa2-psk',
+            'wpa2-pre-shared-key': newPassword,
+          });
+        }
+      }
+    }
+  }
+
+  /// Mengambil daftar perangkat aktif (DHCP Lease + ARP + Wireless Registration) beserta status blokir
+  Future<List<ConnectedDevice>> fetchConnectedDevices() async {
+    final results = await Future.wait([
+      _safeRunCommand('/ip/dhcp-server/lease/print'),
+      _safeRunCommand('/ip/arp/print'),
+      _safeRunCommand('/ip/firewall/filter/print'),
+      _safeRunCommand('/interface/wireless/access-list/print'),
+      _safeRunCommand('/interface/wifi/access-list/print'),
+    ]);
+
+    final leases = results[0];
+    final arps = results[1];
+    final firewallRules = results[2];
+    final v6AccessList = results[3];
+    final v7AccessList = results[4];
+
+    final blockedMacs = <String>{};
+    for (final rule in firewallRules) {
+      final mac = (rule['src-mac-address'] ?? '').toUpperCase();
+      if (mac.isNotEmpty && rule['action'] == 'drop' && rule['disabled'] != 'true') {
+        blockedMacs.add(mac);
+      }
+    }
+    for (final acl in v6AccessList) {
+      final mac = (acl['mac-address'] ?? '').toUpperCase();
+      if (mac.isNotEmpty && acl['authentication'] == 'no') {
+        blockedMacs.add(mac);
+      }
+    }
+    for (final acl in v7AccessList) {
+      final mac = (acl['mac-address'] ?? '').toUpperCase();
+      if (mac.isNotEmpty && acl['action'] == 'reject') {
+        blockedMacs.add(mac);
+      }
+    }
+
+    final deviceMap = <String, ConnectedDevice>{};
+
+    for (final lease in leases) {
+      final mac = (lease['mac-address'] ?? '').toUpperCase();
+      if (mac.isEmpty) continue;
+      deviceMap[mac] = ConnectedDevice(
+        macAddress: mac,
+        ipAddress: lease['address'] ?? lease['active-address'] ?? '-',
+        hostName: (lease['host-name'] ?? '').isNotEmpty ? lease['host-name']! : 'Perangkat DHCP',
+        source: 'DHCP Lease',
+        isBlocked: blockedMacs.contains(mac),
+      );
+    }
+
+    for (final arp in arps) {
+      final mac = (arp['mac-address'] ?? '').toUpperCase();
+      if (mac.isEmpty || deviceMap.containsKey(mac)) continue;
+      deviceMap[mac] = ConnectedDevice(
+        macAddress: mac,
+        ipAddress: arp['address'] ?? '-',
+        hostName: 'Host (${arp['interface'] ?? 'LAN'})',
+        source: 'ARP Table',
+        isBlocked: blockedMacs.contains(mac),
+      );
+    }
+
+    // Pastikan perangkat yang diblokir tetap muncul meski sudah terputus dari ARP/DHCP
+    for (final mac in blockedMacs) {
+      if (!deviceMap.containsKey(mac)) {
+        deviceMap[mac] = ConnectedDevice(
+          macAddress: mac,
+          ipAddress: 'Terblokir',
+          hostName: 'Perangkat Diblokir',
+          source: 'Firewall / ACL',
+          isBlocked: true,
+        );
+      }
+    }
+
+    return deviceMap.values.toList();
+  }
+
+  /// Engine Static IP ISP: Menggabungkan data dari /ip/arp, /queue/simple, dan /ip/firewall/filter
+  Future<List<StaticHostDevice>> fetchStaticDevices() async {
+    final results = await Future.wait([
+      _safeRunCommand('/ip/arp/print'),
+      _safeRunCommand('/queue/simple/print'),
+      _safeRunCommand('/ip/firewall/filter/print'),
+    ]);
+
+    final arpList = results[0];
+    final queueList = results[1];
+    final filterRules = results[2];
+
+    // Filter drop rule yang diblokir oleh aplikasi ISP
+    final blockedIps = <String>{};
+    final blockedMacs = <String>{};
+    for (final r in filterRules) {
+      final action = r['action'] ?? '';
+      final comment = r['comment'] ?? '';
+      if (action == 'drop' && comment.startsWith('BLOCKED_BY_ISP_APP')) {
+        final srcIp = (r['src-address'] ?? '').split('/')[0].trim();
+        if (srcIp.isNotEmpty) blockedIps.add(srcIp);
+
+        final srcMac = (r['src-mac-address'] ?? '').trim().toUpperCase();
+        if (srcMac.isNotEmpty) blockedMacs.add(srcMac);
+      }
+    }
+
+    // Index simple queue berdasarkan target IP (menghilangkan prefix /32)
+    final queueByIp = <String, Map<String, String>>{};
+    for (final q in queueList) {
+      final target = q['target'] ?? '';
+      final cleanTarget = target.split('/')[0].trim();
+      if (cleanTarget.isNotEmpty) {
+        queueByIp[cleanTarget] = q;
+      }
+    }
+
+    final result = <StaticHostDevice>[];
+    final seenIps = <String>{};
+    final seenMacs = <String>{};
+
+    // 1. Host aktif dari ARP table
+    for (final arp in arpList) {
+      final ip = (arp['address'] ?? '').trim();
+      if (ip.isEmpty) continue;
+      seenIps.add(ip);
+
+      final mac = (arp['mac-address'] ?? '').trim().toUpperCase();
+      if (mac.isNotEmpty) seenMacs.add(mac);
+
+      final iface = arp['interface'] ?? 'ether';
+      final arpComment = arp['comment'] ?? '';
+
+      final q = queueByIp[ip];
+      String customerName = '';
+      String maxLimit = '-';
+      String currentRate = '-';
+
+      if (q != null) {
+        final qComment = q['comment'] ?? '';
+        final qName = q['name'] ?? '';
+        if (qComment.isNotEmpty) {
+          customerName = qComment;
+        } else if (qName.isNotEmpty) {
+          customerName = qName;
+        }
+
+        maxLimit = q['max-limit'] ?? '-';
+        currentRate = q['rate'] ?? '-';
+      }
+
+      if (customerName.isEmpty && arpComment.isNotEmpty) {
+        customerName = arpComment;
+      }
+      if (customerName.isEmpty) {
+        customerName = 'Host $iface';
+      }
+
+      final isBlockedByIp = blockedIps.contains(ip);
+      final isBlockedByMac = mac.isNotEmpty && blockedMacs.contains(mac);
+      final isUnqueuedAnomaly = (q == null);
+
+      result.add(StaticHostDevice(
+        ipAddress: ip,
+        macAddress: mac,
+        interfaceName: iface,
+        customerName: customerName,
+        maxLimit: _formatRate(maxLimit),
+        currentRate: _formatRate(currentRate),
+        isBlockedByIp: isBlockedByIp,
+        isBlockedByMac: isBlockedByMac,
+        isUnqueuedAnomaly: isUnqueuedAnomaly,
+        comment: arpComment.isNotEmpty ? arpComment : (q?['comment']),
+      ));
+    }
+
+    // 2. IP yang terblokir namun sudah offline / hilang dari ARP
+    for (final bIp in blockedIps) {
+      if (!seenIps.contains(bIp)) {
+        final q = queueByIp[bIp];
+        final name = q?['comment']?.isNotEmpty == true
+            ? q!['comment']!
+            : (q?['name']?.isNotEmpty == true ? q!['name']! : 'Host Terblokir IP');
+        result.add(StaticHostDevice(
+          ipAddress: bIp,
+          macAddress: '',
+          interfaceName: 'Drop Rules',
+          customerName: '$name (Offline)',
+          maxLimit: _formatRate(q?['max-limit'] ?? '-'),
+          currentRate: '-',
+          isBlockedByIp: true,
+          isBlockedByMac: false,
+          isUnqueuedAnomaly: q == null,
+          comment: 'Terblokir IP (Tidak ada di ARP)',
+        ));
+      }
+    }
+
+    // 3. MAC yang terblokir namun sudah offline / hilang dari ARP
+    for (final bMac in blockedMacs) {
+      if (!seenMacs.contains(bMac)) {
+        result.add(StaticHostDevice(
+          ipAddress: '-',
+          macAddress: bMac,
+          interfaceName: 'Drop Rules',
+          customerName: 'Host Terblokir MAC (Offline)',
+          maxLimit: '-',
+          currentRate: '-',
+          isBlockedByIp: false,
+          isBlockedByMac: true,
+          isUnqueuedAnomaly: false,
+          comment: 'Terblokir MAC (Tidak ada di ARP)',
+        ));
+      }
+    }
+
+    return result;
+  }
+
+  static String _formatRate(String raw) {
+    if (raw == '-' || raw.isEmpty) return '-';
+    final parts = raw.split('/');
+    if (parts.length == 2) {
+      return '${_formatSingleRate(parts[0])} / ${_formatSingleRate(parts[1])}';
+    }
+    return _formatSingleRate(raw);
+  }
+
+  static String _formatSingleRate(String str) {
+    final trimmed = str.trim();
+    if (trimmed.isEmpty || trimmed == '0') return '0 bps';
+    final val = int.tryParse(trimmed);
+    if (val == null) return trimmed;
+    if (val >= 1000000000) return '${(val / 1000000000).toStringAsFixed(1)} Gbps';
+    if (val >= 1000000) return '${(val / 1000000).toStringAsFixed(1)} Mbps';
+    if (val >= 1000) return '${(val / 1000).toStringAsFixed(0)} Kbps';
+    return '$val bps';
+  }
+
+  /// Memblokir atau membuka blokir IP Address pelanggan
+  Future<void> toggleBlockIp(String ipAddress, {required bool block, String? label}) async {
+    final cleanIp = ipAddress.trim();
+    if (cleanIp.isEmpty || cleanIp == '-') return;
+
+    if (block) {
+      final rules = await _safeRunCommand('/ip/firewall/filter/print');
+      final alreadyBlocked = rules.any((r) {
+        final src = (r['src-address'] ?? '').split('/')[0].trim();
+        return src == cleanIp && r['action'] == 'drop';
+      });
+
+      if (!alreadyBlocked) {
+        final commentText = 'BLOCKED_BY_ISP_APP${label != null && label.trim().isNotEmpty ? ' (${label.trim()})' : ''}';
+        await runCommand('/ip/firewall/filter/add', params: {
+          'chain': 'forward',
+          'src-address': cleanIp,
+          'action': 'drop',
+          'comment': commentText,
+        });
+      }
+    } else {
+      final rules = await _safeRunCommand('/ip/firewall/filter/print');
+      for (final r in rules) {
+        final src = (r['src-address'] ?? '').split('/')[0].trim();
+        if (src == cleanIp && r['action'] == 'drop' && r['.id'] != null) {
+          await runCommand('/ip/firewall/filter/remove', params: {'.id': r['.id']!});
+        }
+      }
+    }
+  }
+
+  /// Memblokir atau membuka blokir MAC Address perangkat
+  Future<void> toggleBlockMac(String macAddress, {required bool block, String? label}) async {
+    final cleanMac = macAddress.trim().toUpperCase();
+    if (cleanMac.isEmpty || cleanMac == '-') return;
+
+    if (block) {
+      final rules = await _safeRunCommand('/ip/firewall/filter/print');
+      final alreadyBlocked = rules.any((r) {
+        final src = (r['src-mac-address'] ?? '').trim().toUpperCase();
+        return src == cleanMac && r['action'] == 'drop';
+      });
+
+      if (!alreadyBlocked) {
+        final commentText = 'BLOCKED_BY_ISP_APP${label != null && label.trim().isNotEmpty ? ' (${label.trim()})' : ''}';
+        await runCommand('/ip/firewall/filter/add', params: {
+          'chain': 'forward',
+          'src-mac-address': cleanMac,
+          'action': 'drop',
+          'comment': commentText,
+        });
+      }
+    } else {
+      // Hapus rule firewall yang memblokir MAC tersebut
+      final rules = await _safeRunCommand('/ip/firewall/filter/print');
+      for (final r in rules) {
+        if ((r['src-mac-address'] ?? '').toUpperCase() == cleanMac && r['.id'] != null) {
+          await runCommand('/ip/firewall/filter/remove', params: {'.id': r['.id']!});
+        }
+      }
+      // Hapus juga jika ada di wireless access-list
+      final v6Acl = await _safeRunCommand('/interface/wireless/access-list/print');
+      for (final a in v6Acl) {
+        if ((a['mac-address'] ?? '').toUpperCase() == cleanMac && a['.id'] != null) {
+          await runCommand('/interface/wireless/access-list/remove', params: {'.id': a['.id']!});
+        }
+      }
+    }
+  }
+
+  /// Fitur Teknisi: Ubah Identity Router
+  Future<void> setRouterIdentity(String newName) async {
+    await runCommand('/system/identity/set', params: {'name': newName});
+  }
+
+  /// Fitur Teknisi: Reboot Router
+  Future<void> rebootRouter() async {
+    await runCommand('/system/reboot');
+  }
+
+  /// Fitur Teknisi: Shutdown Router
+  Future<void> shutdownRouter() async {
+    await runCommand('/system/shutdown');
+  }
+
+  // ===================== FULL WINBOX TECHNICIAN MODULES =====================
+
+  /// Interfaces: Toggle Enable/Disable Interface
+  Future<void> toggleInterface(String id, bool enable) async {
+    final cmd = enable ? '/interface/enable' : '/interface/disable';
+    await runCommand(cmd, params: {'.id': id});
+  }
+
+  /// IP Address: Tambah IP Address Baru
+  Future<void> addIpAddress({
+    required String address,
+    required String interface,
+    String? comment,
+  }) async {
+    final params = <String, String>{
+      'address': address,
+      'interface': interface,
+    };
+    if (comment != null && comment.isNotEmpty) params['comment'] = comment;
+    await runCommand('/ip/address/add', params: params);
+  }
+
+  /// IP Address: Hapus IP Address
+  Future<void> removeIpAddress(String id) async {
+    await runCommand('/ip/address/remove', params: {'.id': id});
+  }
+
+  /// IP Routes: Ambil Tabel Routing
+  Future<List<Map<String, String>>> fetchRoutes() async {
+    return await _safeRunCommand('/ip/route/print');
+  }
+
+  /// IP Routes: Tambah Static Route
+  Future<void> addRoute({required String dstAddress, required String gateway}) async {
+    await runCommand('/ip/route/add', params: {
+      'dst-address': dstAddress,
+      'gateway': gateway,
+    });
+  }
+
+  /// IP Routes: Hapus Route
+  Future<void> removeRoute(String id) async {
+    await runCommand('/ip/route/remove', params: {'.id': id});
+  }
+
+  /// DHCP Leases: Ambil Daftar Lease
+  Future<List<Map<String, String>>> fetchDhcpLeases() async {
+    return await _safeRunCommand('/ip/dhcp-server/lease/print');
+  }
+
+  /// DHCP Leases: Jadikan Lease Statik (Make Static)
+  Future<void> makeDhcpStatic(String id) async {
+    await runCommand('/ip/dhcp-server/lease/make-static', params: {'.id': id});
+  }
+
+  /// DHCP Leases: Hapus Lease
+  Future<void> removeDhcpLease(String id) async {
+    await runCommand('/ip/dhcp-server/lease/remove', params: {'.id': id});
+  }
+
+  /// DNS: Ambil Pengaturan DNS
+  Future<Map<String, String>> fetchDnsSettings() async {
+    final list = await _safeRunCommand('/ip/dns/print');
+    return list.isNotEmpty ? list.first : <String, String>{};
+  }
+
+  /// DNS: Atur Server DNS & Allow Remote Requests
+  Future<void> setDnsSettings({required String servers, required bool allowRemote}) async {
+    await runCommand('/ip/dns/set', params: {
+      'servers': servers,
+      'allow-remote-requests': allowRemote ? 'yes' : 'no',
+    });
+  }
+
+  /// Firewall Filter: Ambil Rules
+  Future<List<Map<String, String>>> fetchFirewallFilter() async {
+    return await _safeRunCommand('/ip/firewall/filter/print');
+  }
+
+  /// Firewall NAT: Ambil NAT Rules
+  Future<List<Map<String, String>>> fetchFirewallNat() async {
+    return await _safeRunCommand('/ip/firewall/nat/print');
+  }
+
+  /// Firewall: Toggle Enable/Disable Rule
+  Future<void> toggleRule(String tablePath, String id, bool enable) async {
+    final cmd = enable ? '$tablePath/enable' : '$tablePath/disable';
+    await runCommand(cmd, params: {'.id': id});
+  }
+
+  /// Firewall: Hapus Rule
+  Future<void> removeRule(String tablePath, String id) async {
+    await runCommand('$tablePath/remove', params: {'.id': id});
+  }
+
+  /// Simple Queues: Ambil Daftar Limit Bandwidth
+  Future<List<Map<String, String>>> fetchSimpleQueues() async {
+    return await _safeRunCommand('/queue/simple/print');
+  }
+
+  /// Simple Queues: Tambah Limit Bandwidth
+  Future<void> addSimpleQueue({
+    required String name,
+    required String target,
+    required String maxLimit,
+  }) async {
+    await runCommand('/queue/simple/add', params: {
+      'name': name,
+      'target': target,
+      'max-limit': maxLimit,
+    });
+  }
+
+  /// Simple Queues: Hapus Limit
+  Future<void> removeQueue(String id) async {
+    await runCommand('/queue/simple/remove', params: {'.id': id});
+  }
+
+  /// PPP / PPPoE: Ambil Daftar Secret (Pengguna ISP)
+  Future<List<Map<String, String>>> fetchPppSecrets() async {
+    return await _safeRunCommand('/ppp/secret/print');
+  }
+
+  /// PPP / PPPoE: Tambah Secret Baru
+  Future<void> addPppSecret({
+    required String name,
+    required String password,
+    String profile = 'default',
+    String service = 'any',
+  }) async {
+    await runCommand('/ppp/secret/add', params: {
+      'name': name,
+      'password': password,
+      'profile': profile,
+      'service': service,
+    });
+  }
+
+  /// PPP / PPPoE: Hapus Secret
+  Future<void> removePppSecret(String id) async {
+    await runCommand('/ppp/secret/remove', params: {'.id': id});
+  }
+
+  /// PPP / PPPoE: Ambil Daftar Sesi Aktif
+  Future<List<Map<String, String>>> fetchPppActive() async {
+    return await _safeRunCommand('/ppp/active/print');
+  }
+
+  /// System Logs: Ambil Catatan Event Router
+  Future<List<Map<String, String>>> fetchLogs() async {
+    final logs = await _safeRunCommand('/log/print');
+    // Balik urutan agar log terbaru muncul di atas
+    return logs.reversed.take(60).toList();
+  }
+
+  /// Diagnostic Tool: Ping Host
+  Future<List<Map<String, String>>> pingHost(String target, {int count = 4}) async {
+    return await runCommand('/ping', params: {
+      'address': target,
+      'count': count.toString(),
+    });
+  }
+
+  /// Generic Fetcher untuk sembarang menu RouterOS (Winbox Complete)
+  Future<List<Map<String, String>>> fetchMenu(String path) async {
+    return await _safeRunCommand(path);
+  }
+
+  /// Generic Executor untuk perintah / aksi RouterOS (Add, Set, Remove, Enable, Disable)
+  Future<void> executePath(String path, {Map<String, String>? params}) async {
+    await runCommand(path, params: params);
+  }
+
+  /// Winbox Item: Set Comment
+  Future<void> setComment(String basePath, String id, String comment) async {
+    await runCommand('$basePath/set', params: {'.id': id, 'comment': comment});
+  }
+
+  /// Winbox Item: Set Properties
+  Future<void> setItemProperties(String basePath, String id, Map<String, String> props) async {
+    final params = Map<String, String>.from(props);
+    params['.id'] = id;
+    await runCommand('$basePath/set', params: params);
+  }
+
+  /// Winbox: Undo Action
+  Future<void> undo() async {
+    await _safeRunCommand('/undo');
+  }
+
+  /// Winbox: Redo Action
+  Future<void> redo() async {
+    await _safeRunCommand('/redo');
+  }
+
+  /// Winbox: Buat File Backup Router
+  Future<void> createBackup(String name) async {
+    await runCommand('/system/backup/save', params: {'name': name});
+  }
+
+  /// Menjalankan perintah RouterOS secara aman (mengembalikan list kosong jika menu tidak ada di perangkat)
+  Future<List<Map<String, String>>> _safeRunCommand(String path) async {
+    try {
+      return await runCommand(path);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Eksekutor antrean perintah FIFO persisten untuk Binary API (8728) dan REST API (80/443)
+  Future<List<Map<String, String>>> runCommand(
+    String path, {
+    Map<String, String>? params,
+  }) {
+    if (_isDisposed) {
+      return Future.error(Exception('MikroTikService sudah di-dispose.'));
+    }
+
+    final completer = Completer<List<Map<String, String>>>();
+    _commandQueue = _commandQueue.then((_) async {
+      try {
+        final result = await _executeCommand(path, params: params);
+        if (!completer.isCompleted) completer.complete(result);
+      } catch (e, st) {
+        if (!completer.isCompleted) completer.completeError(e, st);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<List<Map<String, String>>> _executeCommand(
+    String path, {
+    Map<String, String>? params,
+  }) async {
+    if (profile.protocol == ApiProtocol.routerOsApi8728) {
+      if (_persistentBinaryClient == null || _persistentBinaryClient!.isClosed) {
+        final client = _RouterOsBinaryClient(
+          profile.host,
+          profile.port,
+          onConnectionChanged: _notifyConnectionState,
+        );
+        await client.connectAndLogin(profile.username, profile.password);
+        _persistentBinaryClient = client;
+        _notifyConnectionState(true);
+      }
+
+      try {
+        final words = <String>[path];
+        if (params != null) {
+          params.forEach((k, v) => words.add('=$k=$v'));
+        }
+        final res = await _persistentBinaryClient!.sendCommand(words);
+        _notifyConnectionState(true);
+        return res;
+      } catch (e) {
+        // Socket terputus atau timeout, tutup client agar perintah berikutnya melakukan auto-reconnect
+        _notifyConnectionState(false);
+        await _persistentBinaryClient?.close();
+        _persistentBinaryClient = null;
+        rethrow;
+      }
+    } else {
+      final scheme = profile.protocol == ApiProtocol.restApiHttps ? 'https' : 'http';
+      final cleanPath = path.startsWith('/') ? path : '/$path';
+      final url = '$scheme://${profile.host}:${profile.port}/rest$cleanPath';
+
+      final httpClient = HttpClient()
+        ..connectionTimeout = const Duration(milliseconds: 1500)
+        ..badCertificateCallback = (cert, host, port) => true;
+
+      try {
+        final isPrint = cleanPath.endsWith('/print');
+        final method = isPrint ? 'GET' : 'POST';
+        final targetUrl = isPrint ? url.replaceFirst(RegExp(r'/print$'), '') : url;
+
+        final request = await httpClient.openUrl(method, Uri.parse(targetUrl));
+        final auth = base64Encode(utf8.encode('${profile.username}:${profile.password}'));
+        request.headers.set(HttpHeaders.authorizationHeader, 'Basic $auth');
+        request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+
+        if (!isPrint && params != null && params.isNotEmpty) {
+          request.write(jsonEncode(params));
+        }
+
+        final response = await request.close();
+        final body = await response.transform(utf8.decoder).join();
+
+        if (response.statusCode == 401) {
+          _notifyConnectionState(false);
+          throw Exception('Username atau password salah (401).');
+        }
+        if (response.statusCode >= 400) {
+          throw Exception('HTTP ${response.statusCode}: $body');
+        }
+        _notifyConnectionState(true);
+        if (body.isEmpty) return [];
+
+        final decoded = jsonDecode(body);
+        if (decoded is List) {
+          return decoded
+              .map((item) => Map<String, String>.from(
+                    (item as Map).map((k, v) => MapEntry(k.toString(), v.toString())),
+                  ))
+              .toList();
+        } else if (decoded is Map) {
+          return [
+            decoded.map((k, v) => MapEntry(k.toString(), v.toString())),
+          ];
+        }
+        return [];
+      } catch (e) {
+        _notifyConnectionState(false);
+        rethrow;
+      } finally {
+        httpClient.close();
+      }
+    }
+  }
+}
+
+/// Client socket biner MikroTik RouterOS API (Port 8728)
+class _RouterOsBinaryClient {
+  final String host;
+  final int port;
+  final void Function(bool isConnected)? onConnectionChanged;
+  Socket? _socket;
+  final List<int> _buffer = [];
+  final List<String> _currentSentence = [];
+  final StreamController<List<String>> _controller = StreamController.broadcast();
+  bool _isClosed = false;
+
+  bool get isClosed => _isClosed;
+
+  _RouterOsBinaryClient(this.host, this.port, {this.onConnectionChanged});
+
+  Future<void> connectAndLogin(String username, String password) async {
+    _isClosed = false;
+    _socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 1500));
+    _socket!.setOption(SocketOption.tcpNoDelay, true);
+    onConnectionChanged?.call(true);
+
+    _socket!.listen(
+      _onData,
+      onError: (e) {
+        _isClosed = true;
+        onConnectionChanged?.call(false);
+        if (!_controller.isClosed) _controller.addError(e);
+      },
+      onDone: () {
+        _isClosed = true;
+        onConnectionChanged?.call(false);
+        if (!_controller.isClosed) _controller.close();
+      },
+      cancelOnError: false,
+    );
+
+    await sendCommand(['/login', '=name=$username', '=password=$password']);
+  }
+
+  void _onData(List<int> data) {
+    _buffer.addAll(data);
+    while (true) {
+      final word = _decodeNextWord();
+      if (word == null) break;
+      if (word.isEmpty) {
+        _controller.add(List<String>.from(_currentSentence));
+        _currentSentence.clear();
+      } else {
+        _currentSentence.add(word);
+      }
+    }
+  }
+
+  String? _decodeNextWord() {
+    if (_buffer.isEmpty) return null;
+    final b0 = _buffer[0];
+    int len = 0;
+    int offset = 0;
+
+    if ((b0 & 0x80) == 0x00) {
+      len = b0;
+      offset = 1;
+    } else if ((b0 & 0xC0) == 0x80) {
+      if (_buffer.length < 2) return null;
+      len = ((b0 & 0x3F) << 8) | _buffer[1];
+      offset = 2;
+    } else if ((b0 & 0xE0) == 0xC0) {
+      if (_buffer.length < 3) return null;
+      len = ((b0 & 0x1F) << 16) | (_buffer[1] << 8) | _buffer[2];
+      offset = 3;
+    } else if ((b0 & 0xF0) == 0xE0) {
+      if (_buffer.length < 4) return null;
+      len = ((b0 & 0x0F) << 24) | (_buffer[1] << 16) | (_buffer[2] << 8) | _buffer[3];
+      offset = 4;
+    } else {
+      if (_buffer.length < 5) return null;
+      len = (_buffer[1] << 24) | (_buffer[2] << 16) | (_buffer[3] << 8) | _buffer[4];
+      offset = 5;
+    }
+
+    if (_buffer.length < offset + len) return null;
+    final bytes = _buffer.sublist(offset, offset + len);
+    _buffer.removeRange(0, offset + len);
+    return utf8.decode(bytes, allowMalformed: true);
+  }
+
+  Future<List<Map<String, String>>> sendCommand(List<String> words) async {
+    if (_socket == null) throw Exception('Socket belum terhubung.');
+    final completer = Completer<List<Map<String, String>>>();
+    final records = <Map<String, String>>[];
+    String? trapError;
+
+    late StreamSubscription<List<String>> sub;
+    sub = _controller.stream.listen(
+      (sentence) {
+        if (sentence.isEmpty) return;
+        final tag = sentence.first;
+        if (tag == '!re') {
+          final row = <String, String>{};
+          for (final w in sentence.skip(1)) {
+            if (w.startsWith('=')) {
+              final idx = w.indexOf('=', 1);
+              if (idx != -1) row[w.substring(1, idx)] = w.substring(idx + 1);
+            }
+          }
+          records.add(row);
+        } else if (tag == '!trap') {
+          for (final w in sentence.skip(1)) {
+            if (w.startsWith('=message=')) {
+              trapError = w.substring('=message='.length);
+            }
+          }
+        } else if (tag == '!done') {
+          sub.cancel();
+          if (trapError != null) {
+            completer.completeError(Exception(trapError));
+          } else {
+            completer.complete(records);
+          }
+        } else if (tag == '!fatal') {
+          sub.cancel();
+          completer.completeError(Exception('Koneksi diputus router (!fatal).'));
+        }
+      },
+      onError: (e) {
+        sub.cancel();
+        if (!completer.isCompleted) completer.completeError(e);
+      },
+    );
+
+    for (final w in words) {
+      final bytes = utf8.encode(w);
+      _socket!.add(_encodeLength(bytes.length));
+      _socket!.add(bytes);
+    }
+    _socket!.add([0x00]);
+    await _socket!.flush();
+
+    return completer.future.timeout(
+      const Duration(milliseconds: 1800),
+      onTimeout: () {
+        sub.cancel();
+        _isClosed = true;
+        onConnectionChanged?.call(false);
+        throw TimeoutException('Timeout menunggu respons router.');
+      },
+    );
+  }
+
+  List<int> _encodeLength(int len) {
+    if (len < 0x80) return [len];
+    if (len < 0x4000) return [(len >> 8) | 0x80, len & 0xFF];
+    if (len < 0x200000) return [(len >> 16) | 0xC0, (len >> 8) & 0xFF, len & 0xFF];
+    if (len < 0x10000000) {
+      return [(len >> 24) | 0xE0, (len >> 16) & 0xFF, (len >> 8) & 0xFF, len & 0xFF];
+    }
+    return [0xF0, (len >> 24) & 0xFF, (len >> 16) & 0xFF, (len >> 8) & 0xFF, len & 0xFF];
+  }
+
+  Future<void> close() async {
+    _isClosed = true;
+    onConnectionChanged?.call(false);
+    try {
+      await _socket?.close();
+      _socket?.destroy();
+    } catch (_) {}
+    _socket = null;
+    if (!_controller.isClosed) await _controller.close();
+  }
+}
+
+// ------------------------------------------------------------------------------
+// BAGIAN : SERVICES (lib/services/)
+// FOLDER : lib/services/
+// FILE   : lib/services/profile_storage_service.dart
+// ------------------------------------------------------------------------------
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/router_models.dart';
+
+class ProfileStorageService {
+  static const _profilesKey = 'saved_router_profiles_v1';
+  static const _activeProfileIdKey = 'active_router_profile_id_v1';
+
+  Future<List<RouterProfile>> getProfiles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_profilesKey);
+    if (raw == null || raw.isEmpty) return [];
+
+    final List<dynamic> decoded = jsonDecode(raw);
+    return decoded
+        .map((e) => RouterProfile.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<void> saveProfile(RouterProfile profile, {bool setAsActive = true}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final profiles = await getProfiles();
+
+    final existingIdx = profiles.indexWhere((p) => p.id == profile.id);
+    if (existingIdx >= 0) {
+      profiles[existingIdx] = profile;
+    } else {
+      profiles.add(profile);
+    }
+
+    await prefs.setString(
+      _profilesKey,
+      jsonEncode(profiles.map((p) => p.toJson()).toList()),
+    );
+
+    if (setAsActive) {
+      await prefs.setString(_activeProfileIdKey, profile.id);
+    }
+  }
+
+  Future<void> deleteProfile(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final profiles = await getProfiles();
+    profiles.removeWhere((p) => p.id == id);
+
+    await prefs.setString(
+      _profilesKey,
+      jsonEncode(profiles.map((p) => p.toJson()).toList()),
+    );
+
+    final activeId = prefs.getString(_activeProfileIdKey);
+    if (activeId == id) {
+      await prefs.remove(_activeProfileIdKey);
+    }
+  }
+
+  Future<void> setActiveProfileId(String? id) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (id == null) {
+      await prefs.remove(_activeProfileIdKey);
+    } else {
+      await prefs.setString(_activeProfileIdKey, id);
+    }
+  }
+
+  Future<RouterProfile?> getActiveProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeId = prefs.getString(_activeProfileIdKey);
+    if (activeId == null) return null;
+
+    final profiles = await getProfiles();
+    try {
+      return profiles.firstWhere((p) => p.id == activeId);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+// ------------------------------------------------------------------------------
+// BAGIAN : SERVICES (lib/services/)
+// FOLDER : lib/services/
+// FILE   : lib/services/router_discovery_service.dart
+// ------------------------------------------------------------------------------
+import 'dart:async';
+import 'dart:io';
+
+class DiscoveredRouter {
+  final String ip;
+  final int port;
+  final String label;
+
+  DiscoveredRouter({
+    required this.ip,
+    required this.port,
+    required this.label,
+  });
+}
+
+class RouterDiscoveryService {
+  // Port umum MikroTik: 8728 (API Binary), 80 (HTTP REST), 443 (HTTPS REST), 8729 (API SSL)
+  static const List<int> _portsToProbe = [8728, 80, 443, 8729];
+
+  /// Pindai jaringan lokal Wi-Fi untuk menemukan router MikroTik aktif
+  Future<DiscoveredRouter?> discoverActiveRouter({
+    Duration probeTimeout = const Duration(milliseconds: 900),
+  }) async {
+    final candidateIps = await _getCandidateIps();
+
+    // Pindai kandidat gateway secara paralel
+    final futures = candidateIps.map((ip) => _probeHost(ip, probeTimeout)).toList();
+    final results = await Future.wait(futures);
+
+    // Prioritaskan port 8728 (Native Binary API) jika ada beberapa port terbuka
+    DiscoveredRouter? bestResult;
+    for (final r in results) {
+      if (r != null) {
+        if (r.port == 8728) return r;
+        bestResult ??= r;
+      }
+    }
+
+    return bestResult;
+  }
+
+  Future<List<String>> _getCandidateIps() async {
+    final candidates = <String>{};
+
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          final ip = addr.address;
+          if (ip == '127.0.0.1' || ip.startsWith('169.254.')) continue;
+
+          final parts = ip.split('.');
+          if (parts.length == 4) {
+            final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+            // Default gateway router pada umumnya (.1 atau .254)
+            candidates.add('$prefix.1');
+            candidates.add('$prefix.254');
+          }
+        }
+      }
+    } catch (_) {}
+
+    // IP Default bawaan pabrik MikroTik
+    candidates.add('192.168.88.1');
+    candidates.add('192.168.1.1');
+    candidates.add('10.0.0.1');
+
+    return candidates.toList();
+  }
+
+  Future<DiscoveredRouter?> _probeHost(String host, Duration timeout) async {
+    for (final port in _portsToProbe) {
+      try {
+        final socket = await Socket.connect(host, port, timeout: timeout);
+        await socket.close();
+        return DiscoveredRouter(
+          ip: host,
+          port: port,
+          label: 'Router ($host)',
+        );
+      } catch (_) {
+        // Port tidak merespons, coba port berikutnya
+      }
+    }
+    return null;
+  }
+}
+
+
+// ##############################################################################
+// BAGIAN 4: SCREENS (lib/screens/)
+// ##############################################################################
+
+// ------------------------------------------------------------------------------
+// BAGIAN : SCREENS (lib/screens/)
+// FOLDER : lib/screens/
+// FILE   : lib/screens/profile_list_screen.dart
+// ------------------------------------------------------------------------------
+import 'package:flutter/material.dart';
+import '../models/router_models.dart';
+import '../services/mikrotik_service.dart';
+import '../services/profile_storage_service.dart';
+import '../services/router_discovery_service.dart';
+import '../services/mikrotik_auto_discovery.dart';
+import 'router_dashboard_screen.dart';
+
+class ProfileListScreen extends StatefulWidget {
+  const ProfileListScreen({super.key});
+
+  @override
+  State<ProfileListScreen> createState() => _ProfileListScreenState();
+}
+
+class _ProfileListScreenState extends State<ProfileListScreen> {
+  final _storage = ProfileStorageService();
+  final _discoveryService = RouterDiscoveryService();
+  final _autoDiscovery = MikrotikAutoDiscovery();
+
+  final _labelController = TextEditingController();
+  final _ipController = TextEditingController();
+  final _portController = TextEditingController(text: '8728');
+  final _userController = TextEditingController(text: 'admin');
+  final _passController = TextEditingController();
+
+  List<RouterProfile> _savedProfiles = [];
+  bool _isConnecting = false;
+  bool _isScanning = false;
+  bool _obscurePass = true;
+  LoginRolePreference _selectedRolePreference = LoginRolePreference.auto;
+  MikrotikDiscoveryResult? _detectedRouter;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedProfiles();
+    _startZeroTouchDiscovery();
+  }
+
+  @override
+  void dispose() {
+    _labelController.dispose();
+    _ipController.dispose();
+    _portController.dispose();
+    _userController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedProfiles() async {
+    final list = await _storage.getProfiles();
+    if (mounted) setState(() => _savedProfiles = list);
+  }
+
+  void _startZeroTouchDiscovery() {
+    _autoDiscovery.discoverGatewayRouter().then((result) {
+      if (!mounted) return;
+      if (result != null) {
+        setState(() => _detectedRouter = result);
+      }
+    });
+  }
+
+  void _applyAutoDiscovery(MikrotikDiscoveryResult detected) {
+    setState(() {
+      _ipController.text = detected.gatewayIp;
+      _portController.text = detected.apiPort.toString();
+      if (_labelController.text.trim().isEmpty) {
+        _labelController.text = 'MikroTik (${detected.gatewayIp})';
+      }
+    });
+    _showSnack('Auto-fill: ${detected.gatewayIp}:${detected.apiPort}');
+  }
+
+  Future<void> _scanNetwork() async {
+    setState(() => _isScanning = true);
+    try {
+      final found = await _discoveryService.discoverActiveRouter();
+      if (!mounted) return;
+      if (found != null) {
+        setState(() {
+          _ipController.text = found.ip;
+          _portController.text = found.port.toString();
+          if (_labelController.text.trim().isEmpty) {
+            _labelController.text = found.label;
+          }
+        });
+        _showSnack('Router ditemukan: ${found.ip}');
+      } else {
+        _showSnack('Tidak ada router terdeteksi.', isError: true);
+      }
+    } catch (e) {
+      _showSnack('Gagal scan.', isError: true);
+    } finally {
+      if (mounted) setState(() => _isScanning = false);
+    }
+  }
+
+  Future<void> _connectAndSave(RouterProfile profile) async {
+    setState(() => _isConnecting = true);
+    try {
+      final service = MikroTikService(profile);
+      final data = await service.fetchDashboardSummary();
+      await _storage.saveProfile(profile, setAsActive: false);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RouterDashboardScreen(
+            profile: profile,
+            initialData: data,
+          ),
+        ),
+      );
+    } catch (e) {
+      _showSnack(
+        'Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isConnecting = false);
+    }
+  }
+
+  void _submitNewConnection() {
+    final host = _ipController.text.trim();
+    final port = int.tryParse(_portController.text.trim()) ?? 8728;
+    final user = _userController.text.trim();
+    final pass = _passController.text;
+    final label = _labelController.text.trim().isEmpty
+        ? host
+        : _labelController.text.trim();
+
+    if (host.isEmpty || user.isEmpty) {
+      _showSnack('IP dan Username wajib diisi.', isError: true);
+      return;
+    }
+
+    final protocol = port == 443
+        ? ApiProtocol.restApiHttps
+        : port == 80
+            ? ApiProtocol.restApiHttp
+            : ApiProtocol.routerOsApi8728;
+
+    final newProfile = RouterProfile(
+      id: '${host}_${user}_$port',
+      label: label,
+      host: host,
+      port: port,
+      username: user,
+      password: pass,
+      protocol: protocol,
+      rolePreference: _selectedRolePreference,
+    );
+    _connectAndSave(newProfile);
+  }
+
+  Future<void> _deleteProfile(RouterProfile profile) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Profil?'),
+        content: Text('Hapus "${profile.label}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF3B30),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await _storage.deleteProfile(profile.id);
+    await _loadSavedProfiles();
+    _showSnack('Profil dihapus.');
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontSize: 13)),
+        backgroundColor:
+            isError ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 8),
+                _buildHeader(),
+                const SizedBox(height: 24),
+                if (_detectedRouter != null) ...[
+                  _buildDiscoveryBanner(_detectedRouter!),
+                  const SizedBox(height: 20),
+                ],
+                if (_savedProfiles.isNotEmpty) ...[
+                  _buildSectionLabel('ROUTER TERSIMPAN'),
+                  const SizedBox(height: 8),
+                  ..._savedProfiles.map((p) => _buildProfileCard(p)),
+                  const SizedBox(height: 24),
+                ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSectionLabel('HUBUNGKAN ROUTER'),
+                    TextButton.icon(
+                      onPressed:
+                          _isScanning || _isConnecting ? null : _scanNetwork,
+                      icon: _isScanning
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.wifi_find_rounded, size: 16),
+                      label: Text(
+                          _isScanning ? 'Scanning...' : 'Scan'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF0071E3),
+                        textStyle: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildConnectionForm(),
+                const SizedBox(height: 24),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.lock_outline_rounded,
+                        size: 13, color: Color(0xFFAEAEB2)),
+                    SizedBox(width: 6),
+                    Text(
+                      'Sesi otomatis berakhir saat app ditutup',
+                      style: TextStyle(
+                          fontSize: 11, color: Color(0xFFAEAEB2)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0071E3).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.router_rounded,
+              color: Color(0xFF0071E3), size: 26),
+        ),
+        const SizedBox(width: 14),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Pocket Winbox',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1D1D1F),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'MikroTik Network Manager',
+                style:
+                    TextStyle(fontSize: 13, color: Color(0xFF86868B)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiscoveryBanner(MikrotikDiscoveryResult detected) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0071E3).withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: const Color(0xFF0071E3).withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded,
+                  size: 18, color: Color(0xFF0071E3)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Router MikroTik Terdeteksi',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                '${detected.gatewayIp}:${detected.apiPort}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  color: Color(0xFF0071E3),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 36,
+            child: FilledButton.icon(
+              onPressed: () => _applyAutoDiscovery(detected),
+              icon: const Icon(Icons.touch_app_rounded, size: 16),
+              label: const Text('Isi Otomatis',
+                  style: TextStyle(fontSize: 12)),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0071E3),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF86868B),
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+
+  Widget _buildProfileCard(RouterProfile p) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8E8ED)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0071E3).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.router_rounded,
+                size: 18, color: Color(0xFF0071E3)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.label,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${p.username}@${p.host}:${p.port}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF86868B),
+                    fontFamily: 'monospace',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.delete_outline,
+                size: 18, color: Color(0xFFAEAEB2)),
+            onPressed: _isConnecting ? null : () => _deleteProfile(p),
+            padding: EdgeInsets.zero,
+            constraints:
+                const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            height: 32,
+            child: FilledButton(
+              onPressed:
+                  _isConnecting ? null : () => _connectAndSave(p),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0071E3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Masuk',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionForm() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8E8ED)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildField(
+            controller: _labelController,
+            label: 'Label Router',
+            hint: 'Router Kantor',
+            icon: Icons.label_outline_rounded,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildField(
+                  controller: _ipController,
+                  label: 'IP / Host',
+                  hint: '192.168.88.1',
+                  icon: Icons.language_rounded,
+                  mono: true,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: _buildField(
+                  controller: _portController,
+                  label: 'Port',
+                  hint: '8728',
+                  icon: Icons.tag_rounded,
+                  mono: true,
+                  keyboard: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildField(
+            controller: _userController,
+            label: 'Username',
+            hint: 'admin',
+            icon: Icons.person_outline_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildField(
+            controller: _passController,
+            label: 'Password',
+            hint: '••••••••',
+            icon: Icons.lock_outline_rounded,
+            obscure: _obscurePass,
+            suffix: IconButton(
+              icon: Icon(
+                _obscurePass
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                size: 18,
+                color: const Color(0xFF86868B),
+              ),
+              onPressed: () =>
+                  setState(() => _obscurePass = !_obscurePass),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                  minWidth: 36, minHeight: 36),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Mode Masuk',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF86868B)),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE8E8ED)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<LoginRolePreference>(
+                    isExpanded: true,
+                    isDense: true,
+                    value: _selectedRolePreference,
+                    icon: const Icon(Icons.unfold_more_rounded,
+                        size: 18, color: Color(0xFF86868B)),
+                    items: LoginRolePreference.values.map((pref) {
+                      return DropdownMenuItem(
+                        value: pref,
+                        child: Text(pref.label,
+                            style:
+                                const TextStyle(fontSize: 13)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null)
+                        setState(
+                            () => _selectedRolePreference = val);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 44,
+            child: FilledButton(
+              onPressed: _isConnecting ? null : _submitNewConnection,
+              style: FilledButton.styleFrom(
+                backgroundColor: _isConnecting
+                    ? const Color(0xFFAEAEB2)
+                    : const Color(0xFF0071E3),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: _isConnecting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          'Hubungkan',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    IconData? icon,
+    bool obscure = false,
+    bool mono = false,
+    Widget? suffix,
+    TextInputType keyboard = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF86868B)),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          keyboardType: keyboard,
+          style: TextStyle(
+            fontSize: 14,
+            fontFamily: mono ? 'monospace' : null,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: icon != null
+                ? Icon(icon,
+                    size: 18, color: const Color(0xFFAEAEB2))
+                : null,
+            suffixIcon: suffix,
+            isDense: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ------------------------------------------------------------------------------
+// BAGIAN : SCREENS (lib/screens/)
+// FOLDER : lib/screens/
+// FILE   : lib/screens/router_dashboard_screen.dart
+// ------------------------------------------------------------------------------
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../models/router_models.dart';
+import '../services/mikrotik_service.dart';
+import '../services/profile_storage_service.dart';
+import '../widgets/customer_tab_view.dart';
+import '../widgets/winbox_panel_view.dart';
+import 'profile_list_screen.dart';
+
+class RouterDashboardScreen extends StatefulWidget {
+  final RouterProfile profile;
+  final Map<String, dynamic> initialData;
+
+  const RouterDashboardScreen({
+    super.key,
+    required this.profile,
+    required this.initialData,
+  });
+
+  @override
+  State<RouterDashboardScreen> createState() =>
+      _RouterDashboardScreenState();
+}
+
+class _RouterDashboardScreenState extends State<RouterDashboardScreen> {
+  late MikroTikService _service;
+  late Map<String, dynamic> _data;
+  bool _isLoading = false;
+  int _selectedTab = 0;
+  bool _isOnline = true;
+  Timer? _heartbeatTimer;
+  StreamSubscription<bool>? _connectionSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = MikroTikService(widget.profile);
+    _data = widget.initialData;
+    _subscribeConnection();
+    _startHeartbeat();
+  }
+
+  @override
+  void dispose() {
+    _connectionSub?.cancel();
+    _heartbeatTimer?.cancel();
+    _service.dispose();
+    super.dispose();
+  }
+
+  void _subscribeConnection() {
+    _connectionSub =
+        _service.connectionStateStream.listen((connected) {
+      if (!mounted) return;
+      if (_isOnline != connected) {
+        setState(() => _isOnline = connected);
+      }
+    });
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer =
+        Timer.periodic(const Duration(milliseconds: 1500), (_) async {
+      if (!mounted || _isLoading) return;
+      final alive = await _service.checkConnection();
+      if (!mounted) return;
+      if (alive != _isOnline) {
+        setState(() => _isOnline = alive);
+      }
+      if (alive) {
+        try {
+          final res =
+              await _service.fetchMenu('/system/resource/print');
+          if (mounted && res.isNotEmpty) {
+            setState(() => _data['resource'] = res.first);
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  UserRoleInfo get _role => _data['role'] as UserRoleInfo;
+
+  Future<void> _refresh() async {
+    setState(() => _isLoading = true);
+    try {
+      final fresh = await _service.fetchDashboardSummary();
+      if (mounted) {
+        setState(() {
+          _data = fresh;
+          _isOnline = true;
+          if (_role.isUser) _selectedTab = 0;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isOnline = false);
+      _showSnack('Gagal refresh.', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _switchRouter() async {
+    _heartbeatTimer?.cancel();
+    await _service.dispose();
+    await ProfileStorageService().setActiveProfileId(null);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const ProfileListScreen()),
+    );
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontSize: 13)),
+        backgroundColor: isError
+            ? const Color(0xFFFF3B30)
+            : const Color(0xFF34C759),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTechnician = _role.isTechnician;
+    final activeTab = isTechnician ? _selectedTab : 0;
+
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 16,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    _data['identity']?.toString() ??
+                        widget.profile.label,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildStatusPill(),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              _role.isUser
+                  ? 'MODE USER'
+                  : '${widget.profile.host} • ${_role.roleBadge}',
+              style: const TextStyle(
+                  fontSize: 11, color: Color(0xFF86868B)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child:
+                        CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh_rounded, size: 20),
+            onPressed: _isLoading ? null : _refresh,
+          ),
+          IconButton(
+            icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+            onPressed: _switchRouter,
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (!_isOnline) _buildOfflineBanner(),
+          if (isTechnician) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 8),
+              child: _buildTabSwitcher(),
+            ),
+          ],
+          Expanded(
+            child: activeTab == 0
+                ? CustomerTabView(
+                    data: _data,
+                    role: _role,
+                    service: _service,
+                    onRefresh: _refresh,
+                    showSnack: _showSnack,
+                  )
+                : WinboxPanelView(
+                    service: _service,
+                    data: _data,
+                    showSnack: _showSnack,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusPill() {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: _isOnline
+            ? const Color(0xFF34C759).withOpacity(0.12)
+            : const Color(0xFFFF3B30).withOpacity(0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: _isOnline
+                  ? const Color(0xFF34C759)
+                  : const Color(0xFFFF3B30),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            _isOnline ? 'LIVE' : 'OFFLINE',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: _isOnline
+                  ? const Color(0xFF34C759)
+                  : const Color(0xFFFF3B30),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFF3B30),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+                strokeWidth: 1.5, color: Colors.white),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Router tidak terjangkau — mencoba menyambung ulang...',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500),
+            ),
+          ),
+          GestureDetector(
+            onTap: _refresh,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabSwitcher() {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8E8ED),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          _buildTabItem(0, 'Ringkasan', Icons.devices_rounded),
+          _buildTabItem(
+              1, 'Winbox', Icons.admin_panel_settings_rounded),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabItem(int index, String title, IconData icon) {
+    final selected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1))
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 16,
+                  color: selected
+                      ? const Color(0xFF0071E3)
+                      : const Color(0xFF86868B)),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                  color: selected
+                      ? const Color(0xFF1D1D1F)
+                      : const Color(0xFF86868B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ##############################################################################
+// BAGIAN 5: WIDGETS (lib/widgets/)
+// ##############################################################################
+
+// ------------------------------------------------------------------------------
+// BAGIAN : WIDGETS (lib/widgets/)
+// FOLDER : lib/widgets/
+// FILE   : lib/widgets/customer_tab_view.dart
+// ------------------------------------------------------------------------------
+import 'package:flutter/material.dart';
+import '../models/router_models.dart';
+import '../services/mikrotik_service.dart';
+
+class CustomerTabView extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final UserRoleInfo role;
+  final MikroTikService service;
+  final VoidCallback onRefresh;
+  final Function(String, {bool isError}) showSnack;
+
+  const CustomerTabView({
+    super.key,
+    required this.data,
+    required this.role,
+    required this.service,
+    required this.onRefresh,
+    required this.showSnack,
+  });
+
+  @override
+  State<CustomerTabView> createState() => _CustomerTabViewState();
+}
+
+class _CustomerTabViewState extends State<CustomerTabView> {
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+  bool _isTestingPing = false;
+  String? _pingStatus;
+  Color? _pingColor;
+  IconData? _pingIcon;
+  final Map<String, bool> _revealedPasswords = {};
+  int _deviceFilterMode = 0;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _runPingTest() async {
+    setState(() {
+      _isTestingPing = true;
+      _pingStatus = 'Menguji koneksi...';
+      _pingColor = const Color(0xFF0071E3);
+      _pingIcon = Icons.sync_rounded;
+    });
+    try {
+      final res = await widget.service.pingHost('8.8.8.8', count: 2);
+      if (!mounted) return;
+      int? latency;
+      bool received = false;
+      for (final r in res) {
+        final timeStr = r['time'] ?? '';
+        if (timeStr.isNotEmpty) {
+          received = true;
+          final match = RegExp(r'(\d+)ms').firstMatch(timeStr);
+          if (match != null) latency = int.tryParse(match.group(1)!);
+          break;
+        }
+      }
+      setState(() {
+        if (!received) {
+          _pingStatus = 'Tidak ada internet';
+          _pingColor = const Color(0xFFFF3B30);
+          _pingIcon = Icons.cloud_off_rounded;
+        } else if (latency != null && latency < 50) {
+          _pingStatus = 'Sangat Lancar ($latency ms)';
+          _pingColor = const Color(0xFF34C759);
+          _pingIcon = Icons.check_circle_rounded;
+        } else if (latency != null && latency < 150) {
+          _pingStatus = 'Stabil ($latency ms)';
+          _pingColor = const Color(0xFF0071E3);
+          _pingIcon = Icons.wifi_rounded;
+        } else {
+          _pingStatus = 'Agak Lambat ($latency ms)';
+          _pingColor = const Color(0xFFFF9500);
+          _pingIcon = Icons.warning_amber_rounded;
+        }
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _pingStatus = 'Gagal tes koneksi';
+          _pingColor = const Color(0xFFFF3B30);
+          _pingIcon = Icons.error_outline_rounded;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isTestingPing = false);
+    }
+  }
+
+  List<ConnectedDevice> get _allDevices {
+    final devList = (widget.data['devices'] as List<ConnectedDevice>?) ?? [];
+    if (devList.isNotEmpty) return devList;
+    final staticList = (widget.data['staticDevices'] as List<StaticHostDevice>?) ?? [];
+    return staticList
+        .map((s) => ConnectedDevice(
+              macAddress: s.macAddress,
+              ipAddress: s.ipAddress,
+              hostName: s.customerName,
+              source: s.interfaceName,
+              isBlocked: s.isBlocked,
+            ))
+        .toList();
+  }
+
+  List<ConnectedDevice> get _filteredDevices {
+    var list = _allDevices;
+    if (_deviceFilterMode == 1) list = list.where((d) => !d.isBlocked).toList();
+    if (_deviceFilterMode == 2) list = list.where((d) => d.isBlocked).toList();
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((d) {
+        return d.hostName.toLowerCase().contains(q) ||
+            d.ipAddress.toLowerCase().contains(q) ||
+            d.macAddress.toLowerCase().contains(q);
+      }).toList();
+    }
+    return list;
+  }
+
+  Future<void> _toggleBlock(ConnectedDevice device) async {
+    final willBlock = !device.isBlocked;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(willBlock ? 'Blokir Perangkat?' : 'Buka Blokir?'),
+        content: Text(
+          willBlock
+              ? 'Blokir ${device.hostName} (${device.macAddress})?'
+              : 'Buka blokir ${device.hostName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: willBlock ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(willBlock ? 'Blokir' : 'Buka'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await widget.service.toggleBlockMac(device.macAddress, block: willBlock, label: device.hostName);
+      if (device.ipAddress.isNotEmpty && device.ipAddress != '-' && device.ipAddress != 'Terblokir') {
+        await widget.service.toggleBlockIp(device.ipAddress, block: willBlock, label: device.hostName);
+      }
+      widget.showSnack(willBlock ? 'Diblokir.' : 'Blokir dibuka.');
+      widget.onRefresh();
+    } catch (e) {
+      widget.showSnack('Gagal: ${e.toString()}', isError: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resource = (widget.data['resource'] as Map<String, String>?) ?? {};
+    final wifis = (widget.data['wifis'] as List<WifiInterfaceInfo>?) ?? [];
+    final ips = (widget.data['ips'] as List<Map<String, String>>?) ?? [];
+    final devices = _filteredDevices;
+    final totalDevices = _allDevices.length;
+    final blockedCount = _allDevices.where((d) => d.isBlocked).length;
+    final routerIp = ips.isNotEmpty ? (ips.first['address'] ?? '') : '';
+    final uptime = resource['uptime'] ?? '-';
+    final cpuLoad = resource['cpu-load'] ?? '0';
+    final canWrite = widget.role.canWrite;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Read-only notice
+        if (widget.role.isReadOnly) ...[
+          _buildNotice(
+            'Mode Baca: Akun tidak memiliki izin write.',
+            Icons.info_outline_rounded,
+            const Color(0xFFFF9500),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Router Status Card
+        _buildStatusCard(routerIp, uptime, cpuLoad, resource),
+        const SizedBox(height: 16),
+
+        // Ping Test
+        _buildPingTestCard(),
+        const SizedBox(height: 16),
+
+        // WiFi Section
+        if (wifis.isNotEmpty) ...[
+          _buildSectionLabel('WI-FI'),
+          const SizedBox(height: 8),
+          _buildWifiCard(wifis, canWrite),
+          const SizedBox(height: 16),
+        ],
+
+        // Devices Section
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionLabel('PERANGKAT ($totalDevices)'),
+            if (blockedCount > 0)
+              Text(
+                '$blockedCount diblokir',
+                style: const TextStyle(fontSize: 11, color: Color(0xFFFF3B30), fontWeight: FontWeight.w600),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Search
+        TextField(
+          controller: _searchController,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Cari perangkat...',
+            prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFFAEAEB2)),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 16),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                : null,
+            isDense: true,
+          ),
+          onChanged: (v) => setState(() => _searchQuery = v),
+        ),
+        const SizedBox(height: 8),
+
+        // Filter chips
+        Row(
+          children: [
+            _buildFilterChip(0, 'Semua'),
+            const SizedBox(width: 6),
+            _buildFilterChip(1, 'Aktif'),
+            const SizedBox(width: 6),
+            _buildFilterChip(2, 'Blokir'),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Device list
+        if (devices.isEmpty)
+          _buildEmptyState()
+        else
+          ...devices.map((d) => _buildDeviceCard(d, canWrite)),
+
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildSectionLabel(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF86868B), letterSpacing: 0.8),
+    );
+  }
+
+  Widget _buildNotice(String text, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 12, color: color))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusCard(String routerIp, String uptime, String cpuLoad, Map<String, String> resource) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8E8ED)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(color: Color(0xFF34C759), shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              const Text('Router Aktif', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0071E3).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  resource['board-name'] ?? 'MikroTik',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0071E3)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _buildMetric('IP Router', routerIp, Icons.language_rounded)),
+              Expanded(child: _buildMetric('Uptime', uptime, Icons.timer_outlined)),
+              Expanded(child: _buildMetric('CPU', '$cpuLoad%', Icons.memory_rounded)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetric(String label, String value, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 12, color: const Color(0xFFAEAEB2)),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF86868B))),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPingTestCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8E8ED)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0071E3).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.speed_rounded, size: 18, color: Color(0xFF0071E3)),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tes Koneksi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    SizedBox(height: 2),
+                    Text('Ping ke DNS Global', style: TextStyle(fontSize: 11, color: Color(0xFF86868B))),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 32,
+                child: FilledButton(
+                  onPressed: _isTestingPing ? null : _runPingTest,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0071E3),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: _isTestingPing
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Uji', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+          if (_pingStatus != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _pingColor?.withOpacity(0.08) ?? const Color(0xFFF5F5F7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(_pingIcon ?? Icons.info_outline, color: _pingColor, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _pingStatus!,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _pingColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWifiCard(List<WifiInterfaceInfo> wifis, bool canWrite) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8E8ED)),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < wifis.length; i++) ...[
+            if (i > 0) const Divider(height: 1, indent: 56),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              leading: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF34C759).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.wifi_rounded, size: 18, color: Color(0xFF34C759)),
+              ),
+              title: Text(wifis[i].ssid, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              subtitle: Row(
+                children: [
+                  Text(
+                    _revealedPasswords[wifis[i].id] == true
+                        ? (wifis[i].password.isEmpty ? '(Open)' : wifis[i].password)
+                        : '••••••••',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF86868B)),
+                  ),
+                  if (wifis[i].password.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _revealedPasswords[wifis[i].id] = !(_revealedPasswords[wifis[i].id] ?? false);
+                      }),
+                      child: Icon(
+                        _revealedPasswords[wifis[i].id] == true
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 14,
+                        color: const Color(0xFFAEAEB2),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              trailing: canWrite
+                  ? TextButton(
+                      onPressed: () => _showEditWifiDialog(wifis[i]),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF0071E3),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      ),
+                      child: const Text('Ubah', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    )
+                  : null,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(int mode, String label) {
+    final selected = _deviceFilterMode == mode;
+    return GestureDetector(
+      onTap: () => setState(() => _deviceFilterMode = mode),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF0071E3).withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? const Color(0xFF0071E3) : const Color(0xFFE8E8ED),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? const Color(0xFF0071E3) : const Color(0xFF86868B),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceCard(ConnectedDevice d, bool canWrite) {
+    final blocked = d.isBlocked;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: blocked ? const Color(0xFFFF3B30).withOpacity(0.4) : const Color(0xFFE8E8ED),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: blocked
+                  ? const Color(0xFFFF3B30).withOpacity(0.08)
+                  : const Color(0xFF0071E3).withOpacity(0.06),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              blocked ? Icons.block_rounded : Icons.phonelink_rounded,
+              size: 16,
+              color: blocked ? const Color(0xFFFF3B30) : const Color(0xFF0071E3),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        d.hostName,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: blocked
+                            ? const Color(0xFFFF3B30).withOpacity(0.1)
+                            : const Color(0xFF34C759).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        blocked ? 'BLOKIR' : 'AKTIF',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: blocked ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${d.ipAddress} • ${d.macAddress}',
+                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF86868B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (canWrite)
+            SizedBox(
+              height: 30,
+              child: OutlinedButton(
+                onPressed: () => _toggleBlock(d),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: blocked ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                  side: BorderSide(
+                    color: blocked ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                    width: 1,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                child: Text(
+                  blocked ? 'Buka' : 'Blokir',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8E8ED)),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.devices_other_rounded, size: 32, color: Color(0xFFD1D1D6)),
+          SizedBox(height: 8),
+          Text('Belum ada perangkat terdeteksi', style: TextStyle(color: Color(0xFF86868B), fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  void _showEditWifiDialog(WifiInterfaceInfo wifi) {
+    final ssidCtrl = TextEditingController(text: wifi.ssid);
+    final passCtrl = TextEditingController(text: wifi.password);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text('Atur Wi-Fi (${wifi.name})'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Nama Wi-Fi (SSID)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF6C6C70))),
+            const SizedBox(height: 6),
+            TextField(
+              controller: ssidCtrl,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFF2F2F7),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Password Baru', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF6C6C70))),
+            const SizedBox(height: 6),
+            TextField(
+              controller: passCtrl,
+              decoration: InputDecoration(
+                hintText: 'Min. 8 karakter',
+                filled: true,
+                fillColor: const Color(0xFFF2F2F7),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+            onPressed: () async {
+              final newSsid = ssidCtrl.text.trim();
+              final newPass = passCtrl.text;
+              if (newSsid.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await widget.service.updateWifiConfig(
+                  wifi: wifi,
+                  newSsid: newSsid,
+                  newPassword: newPass,
+                );
+                widget.showSnack('Pengaturan Wi-Fi berhasil diperbarui!');
+                widget.onRefresh();
+              } catch (e) {
+                widget.showSnack('Gagal: $e', isError: true);
+              }
+            },
+            child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0071E3))),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------------------
+// BAGIAN : WIDGETS (lib/widgets/)
+// FOLDER : lib/widgets/
+// FILE   : lib/widgets/winbox_panel_view.dart
+// ------------------------------------------------------------------------------
+import 'package:flutter/material.dart';
+import '../services/mikrotik_service.dart';
+
+class WinboxPanelView extends StatefulWidget {
+  final MikroTikService service;
+  final Map<String, dynamic> data;
+  final Function(String, {bool isError}) showSnack;
+
+  const WinboxPanelView({
+    super.key,
+    required this.service,
+    required this.data,
+    required this.showSnack,
+  });
+
+  @override
+  State<WinboxPanelView> createState() => _WinboxPanelViewState();
+}
+
+class _WinboxPanelViewState extends State<WinboxPanelView> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.terminal_rounded,
+                    size: 36,
+                    color: Color(0xFF007AFF),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Pocket Winbox',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1C1E),
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Seluruh modul fitur Winbox telah dikosongkan.\nSiap untuk dibangun ulang dari awal secara modular.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF8E8E93),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+// ------------------------------------------------------------------------------
+// BAGIAN : WIDGETS (lib/widgets/)
+// FOLDER : lib/widgets/
+// FILE   : lib/widgets/winbox_dialogs.dart
+// ------------------------------------------------------------------------------
+// Winbox Dialogs - Dikosongkan, siap dibangun ulang dari awal
+class WinboxDialogs {}
+
+
+// ------------------------------------------------------------------------------
+// BAGIAN : WIDGETS (lib/widgets/)
+// FOLDER : lib/widgets/
+// FILE   : lib/widgets/winbox_item_inspector.dart
+// ------------------------------------------------------------------------------
+// Winbox Item Inspector - Dikosongkan, siap dibangun ulang dari awal
+import 'package:flutter/material.dart';
+
+class WinboxItemInspector extends StatelessWidget {
+  const WinboxItemInspector({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.shrink();
+  }
+}
+
+
+// ------------------------------------------------------------------------------
+// BAGIAN : WIDGETS (lib/widgets/)
+// FOLDER : lib/widgets/
+// FILE   : lib/widgets/winbox_tools_view.dart
+// ------------------------------------------------------------------------------
+// Winbox Tools View - Dikosongkan, siap dibangun ulang dari awal
+import 'package:flutter/material.dart';
+
+class WinboxToolsView extends StatelessWidget {
+  const WinboxToolsView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.shrink();
+  }
+}
+
+
